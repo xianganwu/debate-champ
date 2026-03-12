@@ -33,8 +33,8 @@ export async function POST(request: Request): Promise<Response> {
 
     const result = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 150,
-      system: SPARKY_SYSTEM_PROMPT(topic, sparkySide),
+      max_tokens: 250,
+      system: SPARKY_SYSTEM_PROMPT(topic, sparkySide, round),
       messages: conversationHistory,
     });
 
