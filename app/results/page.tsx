@@ -86,8 +86,7 @@ function StarRating({ stars }: { stars: number }) {
             }}
           >
             <motion.svg
-              width={56}
-              height={56}
+              className="w-10 h-10 sm:w-14 sm:h-14"
               viewBox="0 0 24 24"
               fill={filled ? '#FFE66D' : 'none'}
               stroke={filled ? '#FFE66D' : 'rgba(255,255,255,0.15)'}
@@ -253,7 +252,7 @@ export default function ResultsPage() {
         />
       </div>
 
-      <main className="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-8 px-5 py-10 sm:py-14">
+      <main className="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 py-8 sm:gap-8 sm:px-5 sm:py-14">
         {/* Hero headline */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -277,7 +276,7 @@ export default function ResultsPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring' as const, stiffness: 250, damping: 22, delay: 0.4 }}
-          className="flex w-full gap-4 rounded-2xl border border-white/10 bg-surface/80 p-5 backdrop-blur-sm"
+          className="flex w-full gap-3 rounded-2xl border border-white/10 bg-surface/80 p-4 backdrop-blur-sm sm:gap-4 sm:p-5"
         >
           <div className="flex-shrink-0 pt-1">
             <SparkyAvatar size={64} state="idle" />

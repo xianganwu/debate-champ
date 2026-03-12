@@ -195,6 +195,14 @@ export function useDebate(): UseDebateReturn {
       const sparkySide = studentSide === 'FOR' ? 'AGAINST' : 'FOR';
       const intro = buildIntroScript(topic.text, sparkySide);
 
+      // Add Sparky's intro to the transcript so the user can see it
+      const introEntry: DebateEntry = {
+        speaker: 'sparky',
+        text: intro,
+        round: 0,
+        timestamp: new Date(),
+      };
+      store.addTranscriptEntry(introEntry);
       store.setTurnState('sparky');
 
       try {
@@ -205,6 +213,7 @@ export function useDebate(): UseDebateReturn {
 
       // Hand off to student for round 1
       store.setTurnState('student');
+      playSound('ding');
     },
     [store, synthesis, clearError],
   );

@@ -9,6 +9,7 @@ import { VoiceButton } from '@/components/debate/VoiceButton';
 import { TranscriptBubble } from '@/components/debate/TranscriptBubble';
 import { RoundIndicator } from '@/components/debate/RoundIndicator';
 import { Button } from '@/components/ui/Button';
+import { AudioTestPanel } from '@/components/debate/AudioTestPanel';
 
 function getSparkyState(turnState: string, isSpeaking: boolean) {
   if (turnState === 'sparky' && isSpeaking) return 'speaking' as const;
@@ -69,7 +70,7 @@ export default function DebatePage() {
       </div>
 
       {/* Top bar: topic + round */}
-      <header className="relative z-10 flex items-center justify-between border-b border-white/5 bg-surface/50 px-4 py-3 backdrop-blur-sm sm:px-6">
+      <header className="relative z-10 flex items-center justify-between gap-2 border-b border-white/5 bg-surface/50 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-display text-base font-bold text-white/90 sm:text-lg">
             {debate.topic.emoji} {debate.topic.text}
@@ -81,13 +82,14 @@ export default function DebatePage() {
           </p>
         </div>
         <RoundIndicator currentRound={debate.currentRound} maxRounds={3} />
+        <AudioTestPanel />
       </header>
 
       {/* Main arena */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         {/* Sparky section */}
-        <div className="flex flex-col items-center gap-1 pt-4 pb-2 sm:pt-6">
-          <SparkyAvatar state={sparkyState} size={120} />
+        <div className="flex flex-col items-center gap-1 pt-3 pb-1 sm:pt-6 sm:pb-2">
+          <SparkyAvatar state={sparkyState} size={88} smSize={120} />
           <AnimatePresence mode="wait">
             <motion.span
               key={sparkyState}

@@ -16,6 +16,14 @@ body {
   background: var(--color-dark);
   color: #ededed;
   font-family: var(--font-sans);
+  /* Support safe area insets for notch / dynamic island devices */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Improve touch responsiveness on mobile */
+button, a, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

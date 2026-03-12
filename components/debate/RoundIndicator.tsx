@@ -9,11 +9,11 @@ interface RoundIndicatorProps {
 
 export function RoundIndicator({ currentRound, maxRounds }: RoundIndicatorProps) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="font-display text-sm font-bold text-white/70">
+    <div className="flex items-center gap-1.5 sm:gap-3">
+      <span className="font-display text-xs font-bold text-white/70 sm:text-sm">
         Round {currentRound} of {maxRounds}
       </span>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1 sm:gap-1.5">
         {Array.from({ length: maxRounds }, (_, i) => {
           const roundNum = i + 1;
           const isComplete = roundNum < currentRound;

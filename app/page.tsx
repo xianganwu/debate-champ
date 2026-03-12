@@ -8,6 +8,7 @@ import { SideSelector } from '@/components/home/SideSelector';
 import { Button } from '@/components/ui/Button';
 import { useDebateStore } from '@/lib/store';
 import type { DebateSide, Topic } from '@/types/debate';
+import { AudioTestPanel } from '@/components/debate/AudioTestPanel';
 
 // Floating shape data — deterministic so SSR/CSR don't mismatch
 const SHAPES = [
@@ -78,10 +79,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-dvh overflow-x-hidden">
       <FloatingShapes />
 
-      <main className="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-10 px-5 py-12 sm:py-16">
+      <main className="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-7 px-4 py-10 sm:gap-10 sm:px-5 sm:py-16">
         {/* Hero */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -97,6 +98,9 @@ export default function HomePage() {
           <p className="max-w-md text-lg text-white/60 sm:text-xl">
             Pick a topic. Make your case. Beat Sparky.
           </p>
+          <div className="mt-2">
+            <AudioTestPanel />
+          </div>
         </motion.div>
 
         {/* Browser compat banner */}

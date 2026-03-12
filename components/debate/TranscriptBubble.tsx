@@ -19,7 +19,7 @@ export function TranscriptBubble({ entry }: TranscriptBubbleProps) {
     >
       <div
         className={`
-          max-w-[85%] rounded-2xl px-4 py-3
+          max-w-[90%] rounded-2xl px-3 py-2.5 sm:max-w-[85%] sm:px-4 sm:py-3
           ${
             isSparky
               ? 'rounded-bl-sm bg-secondary/20 border border-secondary/30'

@@ -29,7 +29,9 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
     | undefined ?? null;
 }
 
-const SILENCE_TIMEOUT_MS = 3500;
+// Slightly longer timeout on mobile to account for slower network / mic activation
+const IS_MOBILE = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const SILENCE_TIMEOUT_MS = IS_MOBILE ? 4500 : 3500;
 
 export interface UseSpeechRecognitionReturn {
   isSupported: boolean;
@@ -101,6 +103,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         finalTranscriptRef.current += final;
       }
 
+      // Safari may not support interimResults — show final text as it arrives
       setTranscript(finalTranscriptRef.current + interim);
 
       // Reset silence timer on every result
@@ -111,8 +114,10 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onerror = (event) => {
-      // 'no-speech' and 'aborted' are expected in normal usage
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+      // These errors are expected in normal usage across browsers
+      // iOS Safari may also return 'not-allowed' if mic permission was denied
+      const benign = ['no-speech', 'aborted'];
+      if (!benign.includes(event.error)) {
         console.error('Speech recognition error:', event.error);
       }
       setIsListening(false);
@@ -124,13 +129,19 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       setIsListening(false);
     };
 
-    recognition.start();
-    setIsListening(true);
+    try {
+      recognition.start();
+      setIsListening(true);
 
-    // Start initial silence timer
-    silenceTimerRef.current = setTimeout(() => {
-      stopListening();
-    }, SILENCE_TIMEOUT_MS);
+      // Start initial silence timer
+      silenceTimerRef.current = setTimeout(() => {
+        stopListening();
+      }, SILENCE_TIMEOUT_MS);
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
   }, [clearSilenceTimer, stopListening]);
 
   const reset = useCallback(() => {

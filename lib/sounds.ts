@@ -11,6 +11,10 @@ function getContext(): AudioContext | null {
       return null;
     }
   }
+  // Resume suspended context (Chrome requires user gesture to activate)
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
   return ctx;
 }
 

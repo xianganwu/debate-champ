@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type SparkyState = 'idle' | 'speaking' | 'thinking';
@@ -7,15 +8,29 @@ type SparkyState = 'idle' | 'speaking' | 'thinking';
 interface SparkyAvatarProps {
   state?: SparkyState;
   size?: number;
+  /** Optional larger size to use at sm: breakpoint and above */
+  smSize?: number;
 }
 
-export function SparkyAvatar({ state = 'idle', size = 160 }: SparkyAvatarProps) {
-  const scale = size / 160;
+export function SparkyAvatar({ state = 'idle', size = 160, smSize }: SparkyAvatarProps) {
+  // Use responsive size: smSize on >=640px, size on smaller screens
+  const [effectiveSize, setEffectiveSize] = useState(size);
+
+  useEffect(() => {
+    if (!smSize) return;
+    const mql = window.matchMedia('(min-width: 640px)');
+    const update = () => setEffectiveSize(mql.matches ? smSize : size);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, [size, smSize]);
+
+  const scale = effectiveSize / 160;
 
   return (
     <motion.div
       className="relative select-none"
-      style={{ width: size, height: size + 24 * scale }}
+      style={{ width: effectiveSize, height: effectiveSize + 24 * scale }}
       animate={
         state === 'idle'
           ? { y: [0, -6, 0] }
@@ -41,10 +56,10 @@ export function SparkyAvatar({ state = 'idle', size = 160 }: SparkyAvatarProps) 
             transition={{ duration: 1.2, repeat: Infinity }}
             className="absolute rounded-full bg-secondary/30 blur-xl"
             style={{
-              width: size * 1.2,
-              height: size * 1.2,
-              left: -size * 0.1,
-              top: 24 * scale - size * 0.1,
+              width: effectiveSize * 1.2,
+              height: effectiveSize * 1.2,
+              left: -effectiveSize * 0.1,
+              top: 24 * scale - effectiveSize * 0.1,
             }}
           />
         )}
@@ -76,8 +91,8 @@ export function SparkyAvatar({ state = 'idle', size = 160 }: SparkyAvatarProps) 
         className="absolute left-0 overflow-hidden rounded-3xl bg-secondary border-2 border-secondary/60"
         style={{
           top: 24 * scale,
-          width: size,
-          height: size,
+          width: effectiveSize,
+          height: effectiveSize,
           boxShadow: '0 4px 24px rgba(78,205,196,0.25), inset 0 2px 0 rgba(255,255,255,0.15)',
         }}
       >
@@ -135,7 +150,7 @@ export function SparkyAvatar({ state = 'idle', size = 160 }: SparkyAvatarProps) 
           <>
             {[
               { x: -20, y: 10, delay: 0, text: '?' },
-              { x: size + 4, y: 20, delay: 0.3, text: '?' },
+              { x: effectiveSize + 4, y: 20, delay: 0.3, text: '?' },
               { x: -10, y: 50, delay: 0.6, text: '?' },
             ].map((q, i) => (
               <motion.span

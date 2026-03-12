@@ -132,7 +132,7 @@ function TextInput({ onSubmit, disabled }: { onSubmit: (text: string) => void; d
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
         disabled={disabled}
         placeholder="Type your argument..."
-        className="flex-1 rounded-xl border border-white/15 bg-surface px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-primary disabled:opacity-50"
+        className="h-12 flex-1 rounded-xl border border-white/15 bg-surface px-4 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-primary disabled:opacity-50"
         aria-label="Type your argument"
       />
       <motion.button
@@ -191,8 +191,8 @@ export function VoiceButton({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      {/* Button container */}
-      <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
+      {/* Button container — scales down on small screens */}
+      <div className="relative flex items-center justify-center h-[100px] w-[100px] sm:h-[120px] sm:w-[120px]">
         {/* Ripple rings */}
         {mode === 'recording' && <RippleRings color="border-red-400/50" />}
         {mode === 'ready' && <RippleRings color="border-primary/30" />}
@@ -209,6 +209,7 @@ export function VoiceButton({
           transition={{ type: 'spring' as const, stiffness: 400, damping: 20 }}
           className={`
             relative z-10 flex items-center justify-center
+            h-20 w-20 sm:h-24 sm:w-24
             rounded-full
             transition-colors duration-300
             disabled:cursor-not-allowed
@@ -217,7 +218,6 @@ export function VoiceButton({
             ${mode === 'ready' ? 'shadow-xl shadow-primary/40' : ''}
             ${mode === 'recording' ? 'shadow-xl shadow-red-500/40' : ''}
           `}
-          style={{ width: 96, height: 96 }}
           aria-label={config.label}
         >
           <AnimatePresence mode="wait">
