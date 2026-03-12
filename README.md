@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DebateChamp
 
-## Getting Started
+**AI-powered debate practice for kids.** Pick a topic, choose your side, and go head-to-head with Sparky — a friendly (and slightly dramatic) AI debate partner.
 
-First, run the development server:
+3 rounds. Voice or text. Personalized feedback at the end.
+
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Add your Anthropic API key
+cp .env.local.example .env.local
+# Edit .env.local and set ANTHROPIC_API_KEY
+
+# Run the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in Chrome or Edge for the full voice experience. Other browsers fall back to text input automatically.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Layer | Tech |
+|-------|------|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS v4 |
+| Animation | Framer Motion |
+| State | Zustand |
+| AI | Claude via Anthropic API |
+| Voice | Web Speech API (STT + TTS) |
 
-## Learn More
+## How It Works
 
-To learn more about Next.js, take a look at the following resources:
+1. **Pick a topic** — 15 fun and thought-provoking topics across three categories
+2. **Choose a side** — FOR or AGAINST. Sparky takes the opposite
+3. **Debate in 3 rounds** — speak into your mic (or type) and Sparky responds with counter-arguments
+4. **Get feedback** — Sparky gives you 2 compliments and 1 tip to improve
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/          → Next.js pages (home, debate arena, results)
+components/   → UI components (Sparky avatar, voice button, topic cards)
+hooks/        → React hooks (speech recognition, synthesis, debate orchestration)
+lib/          → Business logic (AI engine, prompts, state store, topics)
+types/        → TypeScript type definitions
+```
 
-## Deploy on Vercel
+## Deploy to Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Install Vercel CLI
+npm i -g vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Deploy
+vercel --prod
+```
+
+Set `ANTHROPIC_API_KEY` in your Vercel project's environment variables.
+
+## Browser Support
+
+| Feature | Chrome/Edge | Firefox/Safari |
+|---------|-------------|----------------|
+| Voice input | Full | Text fallback |
+| Voice output | Full | Text only |
+| Animations | Full | Full |
+
+## License
+
+MIT
