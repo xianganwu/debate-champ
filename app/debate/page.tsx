@@ -87,9 +87,9 @@ export default function DebatePage() {
 
       {/* Main arena */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* Sparky section */}
-        <div className="flex flex-col items-center gap-1 pt-3 pb-1 sm:pt-6 sm:pb-2">
-          <SparkyAvatar state={sparkyState} size={88} smSize={120} />
+        {/* Sparky section — compact on mobile to maximize transcript space */}
+        <div className="flex items-center justify-center gap-2 px-4 pt-2 pb-1 sm:flex-col sm:gap-1 sm:pt-6 sm:pb-2">
+          <SparkyAvatar state={sparkyState} size={48} smSize={120} />
           <AnimatePresence mode="wait">
             <motion.span
               key={sparkyState}
@@ -158,7 +158,7 @@ export default function DebatePage() {
       </div>
 
       {/* Bottom controls */}
-      <div className="relative z-10 border-t border-white/5 bg-surface/50 px-4 py-4 backdrop-blur-sm sm:px-6">
+      <div className="relative z-10 border-t border-white/5 bg-surface/50 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-4">
         <div className="mx-auto max-w-md">
           <AnimatePresence mode="wait">
             {isComplete ? (

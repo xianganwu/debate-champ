@@ -190,9 +190,9 @@ export function VoiceButton({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Button container — scales down on small screens */}
-      <div className="relative flex items-center justify-center h-[100px] w-[100px] sm:h-[120px] sm:w-[120px]">
+    <div className="flex flex-col items-center gap-1.5 sm:gap-3">
+      {/* Button container — compact on mobile */}
+      <div className="relative flex items-center justify-center h-[72px] w-[72px] sm:h-[120px] sm:w-[120px]">
         {/* Ripple rings */}
         {mode === 'recording' && <RippleRings color="border-red-400/50" />}
         {mode === 'ready' && <RippleRings color="border-primary/30" />}
@@ -209,7 +209,7 @@ export function VoiceButton({
           transition={{ type: 'spring' as const, stiffness: 400, damping: 20 }}
           className={`
             relative z-10 flex items-center justify-center
-            h-20 w-20 sm:h-24 sm:w-24
+            h-16 w-16 sm:h-24 sm:w-24
             rounded-full
             transition-colors duration-300
             disabled:cursor-not-allowed
@@ -228,11 +228,11 @@ export function VoiceButton({
               exit={{ scale: 0.5, opacity: 0 }}
               transition={{ type: 'spring' as const, stiffness: 500, damping: 25 }}
             >
-              {mode === 'waiting' && <LockIcon className="w-9 h-9 text-white/40" />}
-              {mode === 'ready' && <MicIcon className="w-10 h-10 text-white" />}
-              {mode === 'recording' && <StopIcon className="w-9 h-9 text-white" />}
+              {mode === 'waiting' && <LockIcon className="w-6 h-6 sm:w-9 sm:h-9 text-white/40" />}
+              {mode === 'ready' && <MicIcon className="w-7 h-7 sm:w-10 sm:h-10 text-white" />}
+              {mode === 'recording' && <StopIcon className="w-6 h-6 sm:w-9 sm:h-9 text-white" />}
               {mode === 'processing' && (
-                <div className="w-8 h-8 rounded-full border-3 border-white/20 border-t-white animate-spin" />
+                <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full border-3 border-white/20 border-t-white animate-spin" />
               )}
             </motion.div>
           </AnimatePresence>

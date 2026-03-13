@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useDebateStore } from '@/lib/store';
 import type { DebateSide, Topic } from '@/types/debate';
 import { AudioTestPanel } from '@/components/debate/AudioTestPanel';
+import { warmUpSpeechSynthesis } from '@/lib/speech-warmup';
 
 // Floating shape data — deterministic so SSR/CSR don't mismatch
 const SHAPES = [
@@ -73,6 +74,9 @@ export default function HomePage() {
 
   function handleStart() {
     if (!selectedTopic || !selectedSide) return;
+    // Unlock TTS engine while we're inside a user-gesture call stack.
+    // Mobile browsers block programmatic speech unless this is done first.
+    warmUpSpeechSynthesis();
     setTopic(selectedTopic);
     setSides(selectedSide);
     router.push('/debate');
