@@ -41,9 +41,11 @@ export default function DebatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-scroll transcript
+  // Auto-scroll transcript (raf ensures the new bubble is painted before scrolling)
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    requestAnimationFrame(() => {
+      transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   }, [debate.transcript.length]);
 
   if (!debate.topic) {
@@ -86,10 +88,10 @@ export default function DebatePage() {
       </header>
 
       {/* Main arena */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* Sparky section — compact on mobile to maximize transcript space */}
-        <div className="flex items-center justify-center gap-2 px-4 pt-2 pb-1 sm:flex-col sm:gap-1 sm:pt-6 sm:pb-2">
-          <SparkyAvatar state={sparkyState} size={48} smSize={120} />
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Sparky section — compact horizontal strip at all breakpoints */}
+        <div className="flex flex-shrink-0 items-center justify-center gap-2 px-4 py-1 sm:py-1.5">
+          <SparkyAvatar state={sparkyState} size={32} smSize={48} />
           <AnimatePresence mode="wait">
             <motion.span
               key={sparkyState}
@@ -122,7 +124,7 @@ export default function DebatePage() {
         )}
 
         {/* Transcript area */}
-        <div className="flex-1 overflow-y-auto px-4 py-2 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 sm:px-6">
           <div className="mx-auto flex max-w-2xl flex-col gap-3">
             {debate.transcript.map((entry, i) => (
               <TranscriptBubble key={i} entry={entry} />
