@@ -13,12 +13,14 @@ const categoryColors: Record<TopicCategory, string> = {
   fun: 'text-primary',
   school: 'text-secondary',
   'big-ideas': 'text-accent',
+  anime: 'text-primary',
 };
 
 const categoryLabels: Record<TopicCategory, string> = {
   fun: 'Fun',
   school: 'School',
   'big-ideas': 'Big Ideas',
+  anime: 'Anime',
 };
 
 export function TopicCard({ topic, isSelected, onSelect }: TopicCardProps) {

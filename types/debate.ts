@@ -5,7 +5,7 @@ export interface Topic {
   readonly emoji: string;
 }
 
-export type TopicCategory = 'fun' | 'school' | 'big-ideas';
+export type TopicCategory = 'fun' | 'school' | 'big-ideas' | 'anime';
 
 export type DebateSide = 'FOR' | 'AGAINST';
 

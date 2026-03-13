@@ -10,7 +10,7 @@ interface TopicGridProps {
   onSelectTopic: (topic: Topic) => void;
 }
 
-const CATEGORY_ORDER: TopicCategory[] = ['fun', 'school', 'big-ideas'];
+const CATEGORY_ORDER: TopicCategory[] = ['fun', 'school', 'big-ideas', 'anime'];
 
 const containerVariants = {
   hidden: {},

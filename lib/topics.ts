@@ -32,13 +32,6 @@ export const TOPICS: readonly Topic[] = [
     category: 'fun',
     emoji: '⏰',
   },
-  {
-    id: 'goku-vs-luffy',
-    text: 'Who is stronger, Goku or Luffy?',
-    category: 'fun',
-    emoji: '💥',
-  },
-
   // School Life
   {
     id: 'homework',
@@ -102,10 +95,78 @@ export const TOPICS: readonly Topic[] = [
     category: 'big-ideas',
     emoji: '💻',
   },
+  // Anime
+  {
+    id: 'goku-vs-luffy',
+    text: 'Is Goku stronger than Luffy?',
+    category: 'anime',
+    emoji: '💥',
+  },
+  {
+    id: 'vegeta-better-saiyan',
+    text: 'Is Vegeta a better Saiyan than Goku?',
+    category: 'anime',
+    emoji: '🔥',
+  },
+  {
+    id: 'goku-second-chances',
+    text: 'Should Goku stop giving villains second chances?',
+    category: 'anime',
+    emoji: '🤔',
+  },
+  {
+    id: 'devil-fruit-or-swim',
+    text: 'Would you rather have a Devil Fruit power or be able to swim?',
+    category: 'anime',
+    emoji: '🌊',
+  },
+  {
+    id: 'luffy-bravest-captain',
+    text: 'Is Luffy the bravest anime captain ever?',
+    category: 'anime',
+    emoji: '🏴‍☠️',
+  },
+  {
+    id: 'power-of-friendship',
+    text: 'Can the power of friendship really beat any villain?',
+    category: 'anime',
+    emoji: '💪',
+  },
+  {
+    id: 'natsu-vs-gray',
+    text: 'Is Natsu stronger than Gray?',
+    category: 'anime',
+    emoji: '🐉',
+  },
+  {
+    id: 'ban-immortality',
+    text: "Is Ban's immortality more of a curse than a gift?",
+    category: 'anime',
+    emoji: '♾️',
+  },
+  {
+    id: 'seven-deadly-sins-heroes',
+    text: 'Are the Seven Deadly Sins actually heroes?',
+    category: 'anime',
+    emoji: '⚔️',
+  },
+  {
+    id: 'tanjiro-too-kind',
+    text: 'Is Tanjiro too kind to be a great demon slayer?',
+    category: 'anime',
+    emoji: '🗡️',
+  },
+  {
+    id: 'zenitsu-brave',
+    text: 'Is Zenitsu actually braver than he thinks?',
+    category: 'anime',
+    emoji: '⚡',
+  },
 ] as const;
 
 export const CATEGORY_LABELS: Record<Topic['category'], string> = {
   fun: '🍕 Fun & Everyday',
   school: '🏫 School Life',
   'big-ideas': '🌍 Big Ideas',
+  anime: '⚔️ Anime Battles',
 };
