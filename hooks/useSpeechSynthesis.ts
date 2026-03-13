@@ -5,6 +5,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 const SPARKY_PITCH = 1.15;
 const SPARKY_RATE = 1.05;
 
+/** If an utterance doesn't fire onstart within this time, TTS is blocked (mobile). */
+const UTTERANCE_START_TIMEOUT_MS = 2000;
+/** Hard cap per utterance — if onend never fires (Chrome bug), bail out. */
+const UTTERANCE_MAX_DURATION_MS = 15000;
+
 const PREFERRED_VOICES = [
   'Google UK English Male',
   'Microsoft David Desktop',
@@ -15,23 +20,19 @@ const PREFERRED_VOICES = [
 ];
 
 function findSparkyVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  // Try preferred voices in order
   for (const name of PREFERRED_VOICES) {
     const match = voices.find((v) => v.name.includes(name));
     if (match) return match;
   }
 
-  // Fall back to any English male-sounding voice
   const englishVoice = voices.find(
     (v) => v.lang.startsWith('en') && /male|david|daniel|james|george|tom|lee/i.test(v.name),
   );
   if (englishVoice) return englishVoice;
 
-  // Fall back to any English voice
   const anyEnglish = voices.find((v) => v.lang.startsWith('en'));
   if (anyEnglish) return anyEnglish;
 
-  // Last resort: first available
   return voices[0];
 }
 
@@ -48,9 +49,7 @@ export interface UseSpeechSynthesisReturn {
   voicesLoaded: boolean;
   speak: (text: string) => Promise<void>;
   cancel: () => void;
-  /** Speak a short test phrase — useful for verifying audio works */
   testSpeak: () => Promise<void>;
-  /** The name of the selected voice (for diagnostics) */
   voiceName: string | null;
 }
 
@@ -64,6 +63,7 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
 
   const voiceRef = useRef<SpeechSynthesisVoice | undefined>(undefined);
   const resumeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!isSupported) return;
@@ -77,18 +77,14 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
       }
     };
 
-    // Voices may already be loaded
     loadVoices();
-
-    // Chrome fires this event asynchronously
     window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
     return () => {
       window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
     };
   }, [isSupported]);
 
-  // Chrome has a bug where TTS pauses after ~15s and onend never fires.
-  // Workaround: call speechSynthesis.resume() every 5s while speaking.
+  // Chrome TTS pause bug workaround
   const startResumeInterval = useCallback(() => {
     if (resumeIntervalRef.current) return;
     resumeIntervalRef.current = setInterval(() => {
@@ -106,6 +102,7 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
   }, []);
 
   const cancel = useCallback(() => {
+    cancelledRef.current = true;
     stopResumeInterval();
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -113,9 +110,16 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     }
   }, [stopResumeInterval]);
 
+  /**
+   * Speak a single sentence with timeouts:
+   * - If onstart doesn't fire within 2s → TTS is blocked, resolve immediately
+   * - If onend doesn't fire within 15s → Chrome bug, force resolve
+   */
   const speakSingleUtterance = useCallback(
     (text: string): Promise<void> => {
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
+        if (cancelledRef.current) { resolve(); return; }
+
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.pitch = SPARKY_PITCH;
         utterance.rate = SPARKY_RATE;
@@ -124,16 +128,45 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
           utterance.voice = voiceRef.current;
         }
 
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => resolve();
+        let started = false;
+        let settled = false;
+
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(startTimeout);
+          clearTimeout(maxTimeout);
+          resolve();
+        };
+
+        // Timeout: if TTS never starts (mobile blocks it), bail out
+        const startTimeout = setTimeout(() => {
+          if (!started) {
+            console.warn('TTS blocked (no onstart) — skipping utterance');
+            window.speechSynthesis.cancel();
+            finish();
+          }
+        }, UTTERANCE_START_TIMEOUT_MS);
+
+        // Hard max timeout: if onend never fires (Chrome pause bug), bail out
+        const maxTimeout = setTimeout(() => {
+          if (!settled) {
+            console.warn('TTS utterance timed out — forcing completion');
+            window.speechSynthesis.cancel();
+            finish();
+          }
+        }, UTTERANCE_MAX_DURATION_MS);
+
+        utterance.onstart = () => {
+          started = true;
+          setIsSpeaking(true);
+        };
+
+        utterance.onend = () => finish();
 
         utterance.onerror = (event) => {
-          // 'interrupted' and 'canceled' happen during normal cancel() calls
-          if (event.error === 'interrupted' || event.error === 'canceled') {
-            resolve();
-          } else {
-            reject(new Error(`Speech synthesis error: ${event.error}`));
-          }
+          console.warn('TTS utterance error:', event.error);
+          finish();
         };
 
         window.speechSynthesis.speak(utterance);
@@ -145,21 +178,17 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
   const speak = useCallback(
     async (text: string): Promise<void> => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
-        throw new Error('SpeechSynthesis not supported');
+        return; // silently skip — not supported
       }
 
-      // Cancel any ongoing speech
+      cancelledRef.current = false;
       window.speechSynthesis.cancel();
-
-      // Start the Chrome resume workaround
       startResumeInterval();
 
       try {
-        // Split into sentences for more natural pacing and to avoid Chrome's
-        // ~15s pause bug (shorter utterances are more reliable).
         const sentences = splitSentences(text);
-
         for (const sentence of sentences) {
+          if (cancelledRef.current) break;
           await speakSingleUtterance(sentence);
         }
       } finally {
@@ -175,7 +204,6 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     await speak(phrase);
   }, [speak]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopResumeInterval();
