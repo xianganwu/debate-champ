@@ -165,8 +165,8 @@ export function useDebate(): UseDebateReturn {
     recognition.startListening();
   }, [store.turnState, recognition, clearError]);
 
-  const finishStudentTurn = useCallback(() => {
-    const finalText = recognition.stopListening();
+  const finishStudentTurn = useCallback(async () => {
+    const finalText = await recognition.stopListening();
     if (!finalText.trim()) {
       // Nothing was said — stay on student turn
       return;

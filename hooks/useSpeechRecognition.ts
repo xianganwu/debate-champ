@@ -17,6 +17,8 @@ interface SpeechRecognitionInstance extends EventTarget {
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onaudiostart: (() => void) | null;
+  onspeechstart: (() => void) | null;
 }
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
@@ -29,16 +31,20 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
     | undefined ?? null;
 }
 
-// Slightly longer timeout on mobile to account for slower network / mic activation
-const IS_MOBILE = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const SILENCE_TIMEOUT_MS = IS_MOBILE ? 4500 : 3500;
+const SILENCE_TIMEOUT_MS = 5000;
 
 export interface UseSpeechRecognitionReturn {
   isSupported: boolean;
   isListening: boolean;
   transcript: string;
+  /** Last error from speech recognition (for diagnostics) */
+  lastError: string | null;
   startListening: () => void;
-  stopListening: () => string;
+  /**
+   * Stops recognition and returns the captured transcript.
+   * Waits briefly for the browser to deliver final results after stop().
+   */
+  stopListening: () => Promise<string>;
   reset: () => void;
 }
 
@@ -46,10 +52,15 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [isSupported] = useState(() => getSpeechRecognition() !== null);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const finalTranscriptRef = useRef('');
+  // Always tracks the latest full transcript (final + interim) so we never
+  // lose speech that hasn't been marked isFinal yet (common on mobile).
+  const latestTranscriptRef = useRef('');
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stoppingRef = useRef(false);
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current !== null) {
@@ -58,14 +69,45 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     }
   }, []);
 
-  const stopListening = useCallback((): string => {
+  /**
+   * Stop recognition and return transcript. Returns a Promise because
+   * calling recognition.stop() causes the browser to deliver one final
+   * onresult event asynchronously — we wait up to 500ms for it.
+   */
+  const stopListening = useCallback((): Promise<string> => {
     clearSilenceTimer();
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+
+    // Prevent re-entrant calls (silence timer + manual stop)
+    if (stoppingRef.current || !recognitionRef.current) {
+      setIsListening(false);
+      return Promise.resolve(finalTranscriptRef.current || latestTranscriptRef.current);
     }
-    setIsListening(false);
-    return finalTranscriptRef.current;
+
+    stoppingRef.current = true;
+    const recognition = recognitionRef.current;
+
+    return new Promise<string>((resolve) => {
+      // Give the browser up to 500ms to deliver the final result after stop()
+      const timeout = setTimeout(() => finish(), 500);
+
+      function finish() {
+        clearTimeout(timeout);
+        recognitionRef.current = null;
+        stoppingRef.current = false;
+        setIsListening(false);
+        // Prefer finalized text, but fall back to latest (includes interim)
+        resolve(finalTranscriptRef.current || latestTranscriptRef.current);
+      }
+
+      // Override onend — it fires after the last onresult from stop()
+      recognition.onend = () => finish();
+
+      try {
+        recognition.stop();
+      } catch {
+        finish();
+      }
+    });
   }, [clearSilenceTimer]);
 
   const startListening = useCallback(() => {
@@ -78,13 +120,24 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     }
 
     finalTranscriptRef.current = '';
+    latestTranscriptRef.current = '';
+    stoppingRef.current = false;
     setTranscript('');
+    setLastError(null);
 
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognitionRef.current = recognition;
+
+    recognition.onaudiostart = () => {
+      console.log('[STT] Audio stream started — mic is active');
+    };
+
+    recognition.onspeechstart = () => {
+      console.log('[STT] Speech detected');
+    };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
@@ -103,8 +156,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         finalTranscriptRef.current += final;
       }
 
-      // Safari may not support interimResults — show final text as it arrives
-      setTranscript(finalTranscriptRef.current + interim);
+      const full = finalTranscriptRef.current + interim;
+      latestTranscriptRef.current = full;
+      setTranscript(full);
 
       // Reset silence timer on every result
       clearSilenceTimer();
@@ -114,18 +168,23 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onerror = (event) => {
-      // These errors are expected in normal usage across browsers
-      // iOS Safari may also return 'not-allowed' if mic permission was denied
       const benign = ['no-speech', 'aborted'];
       if (!benign.includes(event.error)) {
-        console.error('Speech recognition error:', event.error);
+        console.error('[STT] Error:', event.error);
+        setLastError(event.error);
       }
-      setIsListening(false);
     };
 
     recognition.onend = () => {
+      // If we're not in the middle of an explicit stop, this means the browser
+      // ended recognition on its own (e.g. mobile ended the session early).
+      // If we still have the ref, it means this was an unexpected end.
+      if (recognitionRef.current && !stoppingRef.current) {
+        console.warn('[STT] Recognition ended unexpectedly');
+      }
       clearSilenceTimer();
       recognitionRef.current = null;
+      stoppingRef.current = false;
       setIsListening(false);
     };
 
@@ -138,7 +197,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         stopListening();
       }, SILENCE_TIMEOUT_MS);
     } catch (err) {
-      console.error('Failed to start speech recognition:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[STT] Failed to start:', msg);
+      setLastError(msg);
       recognitionRef.current = null;
       setIsListening(false);
     }
@@ -147,7 +208,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const reset = useCallback(() => {
     stopListening();
     finalTranscriptRef.current = '';
+    latestTranscriptRef.current = '';
     setTranscript('');
+    setLastError(null);
   }, [stopListening]);
 
   // Cleanup on unmount
@@ -160,5 +223,13 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
   }, [clearSilenceTimer]);
 
-  return { isSupported, isListening, transcript, startListening, stopListening, reset };
+  return {
+    isSupported,
+    isListening,
+    transcript,
+    lastError,
+    startListening,
+    stopListening,
+    reset,
+  };
 }
