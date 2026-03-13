@@ -36,4 +36,14 @@ export const useDebateStore = create<DebateState>()((set) => ({
   setTurnState: (turnState: TurnState) => set({ turnState }),
 
   resetDebate: () => set(INITIAL_STATE),
+
+  startNewDebate: (topic, studentSide, introEntry) =>
+    set({
+      ...INITIAL_STATE,
+      topic,
+      studentSide,
+      sparkySide: studentSide === 'FOR' ? 'AGAINST' : 'FOR',
+      transcript: [introEntry],
+      turnState: 'sparky' as TurnState,
+    }),
 }));

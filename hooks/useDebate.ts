@@ -185,25 +185,22 @@ export function useDebate(): UseDebateReturn {
 
   const startDebate = useCallback(
     async (topic: Topic, studentSide: DebateSide) => {
-      store.resetDebate();
       setFeedback(null);
       clearError();
-
-      store.setTopic(topic);
-      store.setSides(studentSide);
 
       const sparkySide = studentSide === 'FOR' ? 'AGAINST' : 'FOR';
       const intro = buildIntroScript(topic.text, sparkySide);
 
-      // Add Sparky's intro to the transcript so the user can see it
       const introEntry: DebateEntry = {
         speaker: 'sparky',
         text: intro,
         round: 0,
         timestamp: new Date(),
       };
-      store.addTranscriptEntry(introEntry);
-      store.setTurnState('sparky');
+
+      // Atomic: reset + set topic/sides/transcript/turnState in a single set() call.
+      // This prevents the debate page from briefly rendering null when topic goes to null.
+      store.startNewDebate(topic, studentSide, introEntry);
 
       try {
         await synthesis.speak(intro);

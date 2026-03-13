@@ -40,6 +40,7 @@ export interface DebateState {
   advanceRound: () => void;
   setTurnState: (state: TurnState) => void;
   resetDebate: () => void;
+  startNewDebate: (topic: Topic, studentSide: DebateSide, introEntry: DebateEntry) => void;
 }
 
 export interface DebateApiRequest {
