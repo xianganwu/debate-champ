@@ -32,6 +32,12 @@ export const TOPICS: readonly Topic[] = [
     category: 'fun',
     emoji: '⏰',
   },
+  {
+    id: 'goku-vs-luffy',
+    text: 'Who is stronger, Goku or Luffy?',
+    category: 'fun',
+    emoji: '💥',
+  },
 
   // School Life
   {
