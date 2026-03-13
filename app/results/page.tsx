@@ -70,8 +70,8 @@ function ConfettiBurst() {
 // ---------------------------------------------------------------------------
 function StarRating({ stars }: { stars: number }) {
   return (
-    <div className="flex items-center gap-2" role="img" aria-label={`${stars} out of 3 stars`}>
-      {[1, 2, 3].map((n) => {
+    <div className="flex items-center gap-2" role="img" aria-label={`${stars} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((n) => {
         const filled = n <= stars;
         return (
           <motion.div
@@ -144,14 +144,16 @@ function computeStars(transcript: readonly DebateEntry[]): number {
   const studentEntries = transcript.filter((e) => e.speaker === 'student');
   if (studentEntries.length === 0) return 2;
 
-  // Average word count across student arguments
   const avgWords =
     studentEntries.reduce((sum, e) => sum + e.text.split(/\s+/).length, 0) /
     studentEntries.length;
 
-  // 3 stars if they gave substantive arguments (avg 8+ words), else 2
-  // Every kid who completes the debate gets at least 2 stars
-  return avgWords >= 8 ? 3 : 2;
+  // Every kid who completes gets at least 2 stars
+  // Scale up to 5 based on argument length and number of rounds completed
+  if (avgWords >= 20 && studentEntries.length >= 3) return 5;
+  if (avgWords >= 15 && studentEntries.length >= 2) return 4;
+  if (avgWords >= 8) return 3;
+  return 2;
 }
 
 // ---------------------------------------------------------------------------
