@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface RoundIndicatorProps {
@@ -7,7 +8,7 @@ interface RoundIndicatorProps {
   maxRounds: number;
 }
 
-export function RoundIndicator({ currentRound, maxRounds }: RoundIndicatorProps) {
+export const RoundIndicator = memo(function RoundIndicator({ currentRound, maxRounds }: RoundIndicatorProps) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-3">
       <span className="font-display text-xs font-bold text-white/70 sm:text-sm">
@@ -44,4 +45,4 @@ export function RoundIndicator({ currentRound, maxRounds }: RoundIndicatorProps)
       </div>
     </div>
   );
-}
+});

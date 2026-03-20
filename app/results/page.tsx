@@ -35,29 +35,22 @@ function ConfettiBurst() {
   return (
     <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
       {pieces.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className={`absolute ${p.shape === 1 ? 'rounded-full' : p.shape === 2 ? 'rounded-sm' : ''}`}
+          className={`absolute animate-confetti ${p.shape === 1 ? 'rounded-full' : p.shape === 2 ? 'rounded-sm' : ''}`}
           style={{
             left: `${p.x}%`,
             top: -10,
             width: p.shape === 1 ? 10 : 8,
             height: p.shape === 1 ? 10 : 14,
             backgroundColor: p.color,
-            rotate: p.rotation,
-          }}
-          initial={{ y: 0, opacity: 1 }}
-          animate={{
-            y: [0, window?.innerHeight ? window.innerHeight + 100 : 900],
-            x: [0, p.drift, p.drift * 1.5],
-            rotate: [p.rotation, p.rotation + 360 * (p.id % 2 === 0 ? 1 : -1)],
-            opacity: [1, 1, 0],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            ease: 'easeIn',
-          }}
+            '--confetti-rot': `${p.rotation}deg`,
+            '--confetti-y': '100vh',
+            '--confetti-drift': `${p.drift * 1.5}px`,
+            '--confetti-spin': `${p.id % 2 === 0 ? 360 : -360}deg`,
+            '--confetti-dur': `${p.duration}s`,
+            '--confetti-delay': `${p.delay}s`,
+          } as React.CSSProperties}
         />
       ))}
     </div>
@@ -268,15 +261,13 @@ export default function ResultsPage() {
 
       {/* Ambient background */}
       <div className="pointer-events-none fixed inset-0" aria-hidden>
-        <motion.div
-          className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-accent/5 blur-3xl"
-          animate={{ scale: [1, 1.2, 1], x: [0, 40, 0] }}
-          transition={{ duration: 12, repeat: Infinity }}
+        <div
+          className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-accent/5 blur-3xl animate-float-shape"
+          style={{ '--float-dur': '12s', '--float-delay': '0s' } as React.CSSProperties}
         />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 h-80 w-80 rounded-full bg-secondary/5 blur-3xl"
-          animate={{ scale: [1, 1.15, 1], y: [0, -30, 0] }}
-          transition={{ duration: 15, repeat: Infinity }}
+        <div
+          className="absolute bottom-1/4 right-1/4 h-80 w-80 rounded-full bg-secondary/5 blur-3xl animate-float-shape"
+          style={{ '--float-dur': '15s', '--float-delay': '2s' } as React.CSSProperties}
         />
       </div>
 

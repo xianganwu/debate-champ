@@ -27,26 +27,17 @@ function FloatingShapes() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
       {SHAPES.map((s, i) => (
-        <motion.div
+        <div
           key={i}
-          className={`absolute ${s.color} ${s.round ? 'rounded-full' : 'rounded-2xl rotate-45'} blur-xl`}
+          className={`absolute animate-float-shape ${s.color} ${s.round ? 'rounded-full' : 'rounded-2xl rotate-45'} blur-xl`}
           style={{
             width: s.w,
             height: s.h,
             left: `${s.x}%`,
             top: `${s.y}%`,
-          }}
-          animate={{
-            y: [0, -30, 0, 20, 0],
-            x: [0, 15, 0, -15, 0],
-            scale: [1, 1.15, 1, 0.9, 1],
-          }}
-          transition={{
-            duration: s.dur,
-            repeat: Infinity,
-            delay: s.delay,
-            ease: 'easeInOut',
-          }}
+            '--float-dur': `${s.dur}s`,
+            '--float-delay': `${s.delay}s`,
+          } as React.CSSProperties}
         />
       ))}
     </div>

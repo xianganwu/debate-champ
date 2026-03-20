@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type SparkyState = 'idle' | 'speaking' | 'thinking';
@@ -12,7 +12,7 @@ interface SparkyAvatarProps {
   smSize?: number;
 }
 
-export function SparkyAvatar({ state = 'idle', size = 160, smSize }: SparkyAvatarProps) {
+export const SparkyAvatar = memo(function SparkyAvatar({ state = 'idle', size = 160, smSize }: SparkyAvatarProps) {
   // Use responsive size: smSize on >=640px, size on smaller screens
   const [effectiveSize, setEffectiveSize] = useState(size);
 
@@ -178,7 +178,7 @@ export function SparkyAvatar({ state = 'idle', size = 160, smSize }: SparkyAvata
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 function Eye({ scale, state, side }: { scale: number; state: SparkyState; side: 'left' | 'right' }) {
   const eyeSize = 26 * scale;

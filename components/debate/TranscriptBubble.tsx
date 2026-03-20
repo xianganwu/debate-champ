@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import type { DebateEntry } from '@/types/debate';
 
@@ -7,7 +8,7 @@ interface TranscriptBubbleProps {
   entry: DebateEntry;
 }
 
-export function TranscriptBubble({ entry }: TranscriptBubbleProps) {
+export const TranscriptBubble = memo(function TranscriptBubble({ entry }: TranscriptBubbleProps) {
   const isSparky = entry.speaker === 'sparky';
 
   return (
@@ -41,4 +42,4 @@ export function TranscriptBubble({ entry }: TranscriptBubbleProps) {
       </div>
     </motion.div>
   );
-}
+});

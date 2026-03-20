@@ -58,17 +58,15 @@ export default function DebatePage() {
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-dark">
-      {/* Animated gradient background */}
+      {/* Animated gradient background — CSS animation, zero JS overhead */}
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <motion.div
-          className="absolute -top-1/2 -left-1/2 h-full w-full rounded-full bg-secondary/5 blur-3xl"
-          animate={{ x: [0, 100, 0], y: [0, 50, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+        <div
+          className="absolute -top-1/2 -left-1/2 h-full w-full rounded-full bg-secondary/5 blur-3xl animate-float-shape"
+          style={{ '--float-dur': '20s', '--float-delay': '0s' } as React.CSSProperties}
         />
-        <motion.div
-          className="absolute -bottom-1/2 -right-1/2 h-full w-full rounded-full bg-primary/5 blur-3xl"
-          animate={{ x: [0, -80, 0], y: [0, -60, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut' }}
+        <div
+          className="absolute -bottom-1/2 -right-1/2 h-full w-full rounded-full bg-primary/5 blur-3xl animate-float-shape"
+          style={{ '--float-dur': '25s', '--float-delay': '3s' } as React.CSSProperties}
         />
       </div>
 

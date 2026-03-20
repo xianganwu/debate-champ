@@ -26,6 +26,31 @@ button, a, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Floating shapes — CSS animation replaces JS framer-motion loops */
+@keyframes float-shape {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(15px, -30px) scale(1.15); }
+  50%      { transform: translate(0, 0) scale(1); }
+  75%      { transform: translate(-15px, 20px) scale(0.9); }
+}
+
+.animate-float-shape {
+  animation: float-shape var(--float-dur, 20s) ease-in-out var(--float-delay, 0s) infinite;
+  will-change: transform;
+}
+
+/* Confetti — CSS animation replaces 40 JS framer-motion loops */
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) translateX(0) rotate(var(--confetti-rot, 0deg)); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateY(var(--confetti-y, 900px)) translateX(var(--confetti-drift, 0px)) rotate(calc(var(--confetti-rot, 0deg) + var(--confetti-spin, 360deg))); opacity: 0; }
+}
+
+.animate-confetti {
+  animation: confetti-fall var(--confetti-dur, 2.5s) ease-in var(--confetti-delay, 0s) forwards;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

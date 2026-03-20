@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebateStore } from '@/lib/store';
+import { useShallow } from 'zustand/react/shallow';
 import { callDebateAPIStreaming, callFeedbackAPI } from '@/lib/debate-engine';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
@@ -64,8 +65,39 @@ export interface UseDebateReturn {
   resetDebate: () => void;
 }
 
+// Stable action selectors — Zustand guarantees these are referentially stable
+const selectActions = (s: ReturnType<typeof useDebateStore.getState>) => ({
+  setTopic: s.setTopic,
+  setSides: s.setSides,
+  addTranscriptEntry: s.addTranscriptEntry,
+  advanceRound: s.advanceRound,
+  setTurnState: s.setTurnState,
+  setFeedback: s.setFeedback,
+  setScores: s.setScores,
+  updateLastTranscriptText: s.updateLastTranscriptText,
+  removeLastTranscriptEntry: s.removeLastTranscriptEntry,
+  setPendingArgument: s.setPendingArgument,
+  setRedoUsed: s.setRedoUsed,
+  resetDebate: s.resetDebate,
+  startNewDebate: s.startNewDebate,
+});
+
 export function useDebate(): UseDebateReturn {
-  const store = useDebateStore();
+  // Subscribe to individual state slices — only re-render when that specific value changes
+  const topic = useDebateStore((s) => s.topic);
+  const studentSide = useDebateStore((s) => s.studentSide);
+  const sparkySide = useDebateStore((s) => s.sparkySide);
+  const currentRound = useDebateStore((s) => s.currentRound);
+  const turnState = useDebateStore((s) => s.turnState);
+  const transcript = useDebateStore((s) => s.transcript);
+  const feedback = useDebateStore((s) => s.feedback);
+  const pendingArgument = useDebateStore((s) => s.pendingArgument);
+  const redoUsed = useDebateStore((s) => s.redoUsed);
+
+  // Actions are stable refs — useShallow does shallow equality on the returned object,
+  // so this won't cause re-renders since the function references never change.
+  const actions = useDebateStore(useShallow(selectActions));
+
   const recognition = useSpeechRecognition();
   const synthesis = useSpeechSynthesis();
 
@@ -73,6 +105,20 @@ export function useDebate(): UseDebateReturn {
 
   // Guard against overlapping operations
   const processingRef = useRef(false);
+
+  // RAF-batched streaming: accumulate deltas and flush once per frame
+  const streamBufferRef = useRef('');
+  const rafIdRef = useRef<number | null>(null);
+
+  // Cancel any pending RAF on unmount to prevent post-teardown store mutations
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -87,26 +133,26 @@ export function useDebate(): UseDebateReturn {
 
       if (isComplete) {
         // Debate is over — fetch feedback
-        store.setTurnState('processing');
+        actions.setTurnState('processing');
 
         const currentTranscript = useDebateStore.getState().transcript;
         try {
           const result = await callFeedbackAPI(currentTranscript);
-          store.setFeedback(result.feedback);
-          store.setScores(result.scores);
+          actions.setFeedback(result.feedback);
+          actions.setScores(result.scores);
         } catch (err) {
           setError(toKidFriendlyError(err));
         }
 
-        store.setTurnState('feedback');
+        actions.setTurnState('feedback');
       } else {
         // Advance round after both sides spoke, then hand mic back
-        store.advanceRound();
-        store.setTurnState('student');
+        actions.advanceRound();
+        actions.setTurnState('student');
         playSound('ding');
       }
     },
-    [synthesis, store],
+    [synthesis, actions],
   );
 
   const submitStudentArgument = useCallback(
@@ -128,8 +174,8 @@ export function useDebate(): UseDebateReturn {
         round: currentRound,
         timestamp: new Date(),
       };
-      store.addTranscriptEntry(studentEntry);
-      store.setTurnState('processing');
+      actions.addTranscriptEntry(studentEntry);
+      actions.setTurnState('processing');
 
       try {
         const currentTranscript = useDebateStore.getState().transcript;
@@ -141,23 +187,38 @@ export function useDebate(): UseDebateReturn {
           round: currentRound,
           timestamp: new Date(),
         };
-        store.addTranscriptEntry(sparkyEntry);
-        store.setTurnState('sparky');
+        actions.addTranscriptEntry(sparkyEntry);
+        actions.setTurnState('sparky');
 
-        let streamedText = '';
+        // RAF-batched streaming: accumulate chunks and paint once per frame
+        streamBufferRef.current = '';
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = null;
+        }
+
         const result = await callDebateAPIStreaming(
           currentTranscript,
           topic.text,
           sparkySide,
           currentRound,
           (delta) => {
-            streamedText += delta;
-            store.updateLastTranscriptText(streamedText);
+            streamBufferRef.current += delta;
+            if (rafIdRef.current === null) {
+              rafIdRef.current = requestAnimationFrame(() => {
+                rafIdRef.current = null;
+                actions.updateLastTranscriptText(streamBufferRef.current);
+              });
+            }
           },
         );
 
-        // Finalize with cleaned text from the 'done' event
-        store.updateLastTranscriptText(result.fullText);
+        // Cancel any pending RAF and finalize with cleaned text
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = null;
+        }
+        actions.updateLastTranscriptText(result.fullText);
 
         // Play Sparky's response via TTS
         playSound('whoosh');
@@ -166,23 +227,23 @@ export function useDebate(): UseDebateReturn {
         // Remove the empty sparky placeholder if streaming failed
         const lastEntry = useDebateStore.getState().transcript.at(-1);
         if (lastEntry?.speaker === 'sparky' && !lastEntry.text) {
-          store.removeLastTranscriptEntry();
+          actions.removeLastTranscriptEntry();
         }
         setError(toKidFriendlyError(err));
         // Re-enable student turn so they can retry
-        store.setTurnState('student');
+        actions.setTurnState('student');
       } finally {
         processingRef.current = false;
       }
     },
-    [store, clearError, playSparkysResponse],
+    [actions, clearError, playSparkysResponse],
   );
 
   const startStudentTurn = useCallback(() => {
-    if (store.turnState !== 'student') return;
+    if (turnState !== 'student') return;
     clearError();
     recognition.startListening();
-  }, [store.turnState, recognition, clearError]);
+  }, [turnState, recognition, clearError]);
 
   const enterConfirmOrSubmit = useCallback(
     (text: string) => {
@@ -192,11 +253,11 @@ export function useDebate(): UseDebateReturn {
         submitStudentArgument(text);
       } else {
         // Show confirmation step
-        store.setPendingArgument(text);
-        store.setTurnState('confirm');
+        actions.setPendingArgument(text);
+        actions.setTurnState('confirm');
       }
     },
-    [store, submitStudentArgument],
+    [actions, submitStudentArgument],
   );
 
   const finishStudentTurn = useCallback(async () => {
@@ -221,23 +282,23 @@ export function useDebate(): UseDebateReturn {
     const { pendingArgument } = useDebateStore.getState();
     if (!pendingArgument) {
       // Guard: no pending argument — reset to student turn
-      store.setTurnState('student');
+      actions.setTurnState('student');
       return;
     }
-    store.setPendingArgument(null);
+    actions.setPendingArgument(null);
     submitStudentArgument(pendingArgument);
-  }, [store, submitStudentArgument]);
+  }, [actions, submitStudentArgument]);
 
   const redoArgument = useCallback(() => {
-    store.setPendingArgument(null);
-    store.setRedoUsed(true);
-    store.setTurnState('student');
-  }, [store]);
+    actions.setPendingArgument(null);
+    actions.setRedoUsed(true);
+    actions.setTurnState('student');
+  }, [actions]);
 
   const startDebate = useCallback(
     async (topic: Topic, studentSide: DebateSide) => {
-      store.setFeedback(null);
-      store.setScores(null);
+      actions.setFeedback(null);
+      actions.setScores(null);
       clearError();
 
       const sparkySide = studentSide === 'FOR' ? 'AGAINST' : 'FOR';
@@ -252,7 +313,7 @@ export function useDebate(): UseDebateReturn {
 
       // Atomic: reset + set topic/sides/transcript/turnState in a single set() call.
       // This prevents the debate page from briefly rendering null when topic goes to null.
-      store.startNewDebate(topic, studentSide, introEntry);
+      actions.startNewDebate(topic, studentSide, introEntry);
 
       try {
         await synthesis.speak(intro);
@@ -261,18 +322,18 @@ export function useDebate(): UseDebateReturn {
       }
 
       // Hand off to student for round 1
-      store.setTurnState('student');
+      actions.setTurnState('student');
       playSound('ding');
     },
-    [store, synthesis, clearError],
+    [actions, synthesis, clearError],
   );
 
   const resetDebate = useCallback(() => {
     recognition.reset();
     synthesis.cancel();
-    store.resetDebate();
+    actions.resetDebate();
     clearError();
-  }, [recognition, synthesis, store, clearError]);
+  }, [recognition, synthesis, actions, clearError]);
 
   return {
     isListening: recognition.isListening,
@@ -280,18 +341,18 @@ export function useDebate(): UseDebateReturn {
     voiceSupported: recognition.isSupported && synthesis.isSupported,
     interimTranscript: recognition.transcript,
 
-    topic: store.topic,
-    studentSide: store.studentSide,
-    sparkySide: store.sparkySide,
-    currentRound: store.currentRound,
-    turnState: store.turnState,
-    transcript: store.transcript,
+    topic,
+    studentSide,
+    sparkySide,
+    currentRound,
+    turnState,
+    transcript,
 
     error,
-    feedback: store.feedback,
+    feedback,
 
-    pendingArgument: store.pendingArgument,
-    redoUsed: store.redoUsed,
+    pendingArgument,
+    redoUsed,
 
     startDebate,
     startStudentTurn,
