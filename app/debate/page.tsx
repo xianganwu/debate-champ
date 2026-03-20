@@ -221,7 +221,43 @@ export default function DebatePage() {
                 </p>
               </motion.div>
             ) : (
-              <motion.div key="voice" layout>
+              <motion.div key="voice" layout className="flex flex-col items-center gap-2">
+                {/* Hint section — only during student turn */}
+                {debate.turnState === 'student' && (
+                  <AnimatePresence>
+                    {debate.hintText ? (
+                      <motion.div
+                        key="hint-text"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="max-w-sm rounded-xl border border-accent/20 bg-accent/10 px-4 py-2 text-center text-sm text-accent"
+                      >
+                        💡 {debate.hintText}
+                      </motion.div>
+                    ) : !debate.hintUsed ? (
+                      <motion.button
+                        key="hint-btn"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={debate.requestHint}
+                        disabled={debate.hintLoading}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-surface/60 px-4 py-1.5 text-xs font-bold text-white/50 transition-colors hover:bg-surface hover:text-accent disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        {debate.hintLoading ? (
+                          <>
+                            <div className="h-3 w-3 rounded-full border-2 border-white/20 border-t-accent animate-spin" />
+                            Thinking...
+                          </>
+                        ) : (
+                          <>💡 Give me a hint</>
+                        )}
+                      </motion.button>
+                    ) : null}
+                  </AnimatePresence>
+                )}
+
                 <VoiceButton
                   turnState={debate.turnState}
                   isListening={debate.isListening}

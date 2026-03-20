@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TopicGrid } from '@/components/home/TopicGrid';
 import { SideSelector } from '@/components/home/SideSelector';
 import { Button } from '@/components/ui/Button';
+import { DifficultySelector } from '@/components/home/DifficultySelector';
 import { useDebateStore } from '@/lib/store';
-import type { DebateSide, Topic } from '@/types/debate';
+import type { DebateSide, Difficulty, Topic } from '@/types/debate';
 import { AudioTestPanel } from '@/components/debate/AudioTestPanel';
 import { warmUpSpeechSynthesis } from '@/lib/speech-warmup';
 
@@ -46,10 +47,11 @@ function FloatingShapes() {
 
 export default function HomePage() {
   const router = useRouter();
-  const { setTopic, setSides } = useDebateStore();
+  const { setTopic, setSides, setDifficulty } = useDebateStore();
 
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [selectedSide, setSelectedSide] = useState<DebateSide | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
   const [voiceSupported] = useState(
     () => typeof window !== 'undefined' &&
       ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window),
@@ -70,6 +72,7 @@ export default function HomePage() {
     warmUpSpeechSynthesis();
     setTopic(selectedTopic);
     setSides(selectedSide);
+    setDifficulty(selectedDifficulty);
     router.push('/debate');
   }
 
@@ -151,6 +154,12 @@ export default function HomePage() {
                   selectedSide={selectedSide}
                   onSelectSide={setSelectedSide}
                 />
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <DifficultySelector
+                    selectedDifficulty={selectedDifficulty}
+                    onSelectDifficulty={setSelectedDifficulty}
+                  />
+                </div>
               </div>
             </motion.section>
           )}
@@ -172,6 +181,20 @@ export default function HomePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* History link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <button
+            onClick={() => router.push('/history')}
+            className="text-sm text-white/40 hover:text-white/60 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            View past debates →
+          </button>
+        </motion.div>
 
         {/* Spacer for bottom breathing room */}
         <div className="h-8" />

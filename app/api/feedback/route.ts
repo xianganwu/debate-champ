@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const body = (await request.json()) as FeedbackApiRequest;
 
-  const { transcript } = body;
+  const { transcript, difficulty } = body;
 
   if (!transcript || transcript.length === 0) {
     return Response.json(
@@ -61,7 +61,7 @@ export async function POST(request: Request): Promise<Response> {
       messages: [
         {
           role: 'user',
-          content: FEEDBACK_PROMPT(transcript),
+          content: FEEDBACK_PROMPT(transcript, difficulty ?? 'medium'),
         },
       ],
     });

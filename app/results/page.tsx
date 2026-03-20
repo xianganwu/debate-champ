@@ -7,7 +7,8 @@ import { useDebateStore } from '@/lib/store';
 import { SparkyAvatar } from '@/components/debate/SparkyAvatar';
 import { TranscriptBubble } from '@/components/debate/TranscriptBubble';
 import { Button } from '@/components/ui/Button';
-import type { DebateEntry, DebateScores } from '@/types/debate';
+import { computeStars } from '@/lib/debate-history';
+import type { DebateScores, DebateSide } from '@/types/debate';
 
 // ---------------------------------------------------------------------------
 // Confetti burst — pure CSS particles, no external dependency
@@ -173,42 +174,17 @@ function TypewriterText({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Compute stars from transcript engagement (always 2-3)
-// ---------------------------------------------------------------------------
-function computeStars(transcript: readonly DebateEntry[]): number {
-  const studentEntries = transcript.filter((e) => e.speaker === 'student');
-  if (studentEntries.length === 0) return 2;
-
-  const avgWords =
-    studentEntries.reduce((sum, e) => sum + e.text.split(/\s+/).length, 0) /
-    studentEntries.length;
-
-  // Every kid who completes gets at least 2 stars
-  // Scale up to 5 based on argument length and number of rounds completed
-  if (avgWords >= 20 && studentEntries.length >= 3) return 5;
-  if (avgWords >= 15 && studentEntries.length >= 2) return 4;
-  if (avgWords >= 8) return 3;
-  return 2;
-}
-
-// ---------------------------------------------------------------------------
 // Main results page
 // ---------------------------------------------------------------------------
 export default function ResultsPage() {
   const router = useRouter();
-  const { topic, studentSide, transcript, feedback, scores, resetDebate } = useDebateStore();
+  const { topic, studentSide, difficulty, transcript, feedback, scores, resetDebate } = useDebateStore();
 
   const [showTranscript, setShowTranscript] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
 
-  const stars = useMemo(() => {
-    if (scores) {
-      const avg = (scores.reasoning + scores.persuasion + scores.engagement) / 3;
-      return Math.max(1, Math.min(5, Math.round(avg)));
-    }
-    return computeStars(transcript);
-  }, [scores, transcript]);
+  const stars = useMemo(() => computeStars(transcript, scores), [scores, transcript]);
 
   // Redirect if no debate data
   useEffect(() => {
@@ -225,14 +201,29 @@ export default function ResultsPage() {
 
   const handleDebateAgain = useCallback(() => {
     if (!topic || !studentSide) return;
-    // Save topic + side, reset state, then restore before navigating
     const savedTopic = topic;
     const savedSide = studentSide;
+    const savedDifficulty = difficulty;
     resetDebate();
-    useDebateStore.getState().setTopic(savedTopic);
-    useDebateStore.getState().setSides(savedSide);
+    const store = useDebateStore.getState();
+    store.setTopic(savedTopic);
+    store.setSides(savedSide);
+    store.setDifficulty(savedDifficulty);
     router.push('/debate');
-  }, [topic, studentSide, resetDebate, router]);
+  }, [topic, studentSide, difficulty, resetDebate, router]);
+
+  const handleSwitchSides = useCallback(() => {
+    if (!topic || !studentSide) return;
+    const savedTopic = topic;
+    const flippedSide: DebateSide = studentSide === 'FOR' ? 'AGAINST' : 'FOR';
+    const savedDifficulty = difficulty;
+    resetDebate();
+    const store = useDebateStore.getState();
+    store.setTopic(savedTopic);
+    store.setSides(flippedSide);
+    store.setDifficulty(savedDifficulty);
+    router.push('/debate');
+  }, [topic, studentSide, difficulty, resetDebate, router]);
 
   const handleNewTopic = useCallback(() => {
     resetDebate();
@@ -368,6 +359,9 @@ export default function ResultsPage() {
         >
           <Button large variant="primary" onClick={handleDebateAgain} className="flex-1 sm:flex-none">
             Debate again! 🔁
+          </Button>
+          <Button large variant="secondary" onClick={handleSwitchSides} className="flex-1 sm:flex-none">
+            Switch sides! 🔄
           </Button>
           <Button large variant="secondary" onClick={handleNewTopic} className="flex-1 sm:flex-none">
             New topic 🎲

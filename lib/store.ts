@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DebateEntry, DebateScores, DebateSide, DebateState, Topic, TurnState } from '@/types/debate';
+import type { DebateEntry, DebateScores, DebateSide, DebateState, Difficulty, Topic, TurnState } from '@/types/debate';
 
 const INITIAL_STATE = {
   topic: null,
@@ -11,8 +11,11 @@ const INITIAL_STATE = {
   transcript: [] as readonly DebateEntry[],
   feedback: null as string | null,
   scores: null as DebateScores | null,
+  difficulty: 'medium' as Difficulty,
   pendingArgument: null as string | null,
   redoUsed: false,
+  hintText: null as string | null,
+  hintUsed: false,
 };
 
 export const useDebateStore = create<DebateState>()((set) => ({
@@ -26,6 +29,8 @@ export const useDebateStore = create<DebateState>()((set) => ({
       sparkySide: studentSide === 'FOR' ? 'AGAINST' : 'FOR',
     }),
 
+  setDifficulty: (difficulty: Difficulty) => set({ difficulty }),
+
   addTranscriptEntry: (entry: DebateEntry) =>
     set((state) => ({
       transcript: [...state.transcript, entry],
@@ -36,6 +41,8 @@ export const useDebateStore = create<DebateState>()((set) => ({
       currentRound: Math.min(state.currentRound + 1, state.maxRounds),
       redoUsed: false,
       pendingArgument: null,
+      hintText: null,
+      hintUsed: false,
     })),
 
   setTurnState: (turnState: TurnState) => set({ turnState }),
@@ -61,15 +68,20 @@ export const useDebateStore = create<DebateState>()((set) => ({
 
   setRedoUsed: (used: boolean) => set({ redoUsed: used }),
 
+  setHintText: (text: string | null) => set({ hintText: text }),
+
+  setHintUsed: (used: boolean) => set({ hintUsed: used }),
+
   resetDebate: () => set(INITIAL_STATE),
 
   startNewDebate: (topic, studentSide, introEntry) =>
-    set({
+    set((state) => ({
       ...INITIAL_STATE,
+      difficulty: state.difficulty, // preserve user's difficulty selection
       topic,
       studentSide,
       sparkySide: studentSide === 'FOR' ? 'AGAINST' : 'FOR',
       transcript: [introEntry],
       turnState: 'sparky' as TurnState,
-    }),
+    })),
 }));

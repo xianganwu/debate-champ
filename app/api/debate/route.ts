@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const body = (await request.json()) as DebateApiRequest;
 
-  const { messages, topic, sparkySide, round } = body;
+  const { messages, topic, sparkySide, round, difficulty } = body;
 
   if (!topic || !sparkySide || !round || !messages) {
     return Response.json(
@@ -34,7 +34,7 @@ export async function POST(request: Request): Promise<Response> {
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 250,
-      system: SPARKY_SYSTEM_PROMPT(topic, sparkySide, round),
+      system: SPARKY_SYSTEM_PROMPT(topic, sparkySide, round, difficulty),
       messages: conversationHistory,
     });
 

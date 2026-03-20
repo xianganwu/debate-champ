@@ -1,6 +1,8 @@
 import type {
   DebateEntry,
+  Difficulty,
   FeedbackApiResponse,
+  HintApiResponse,
 } from '@/types/debate';
 
 export interface StreamDebateResult {
@@ -63,12 +65,14 @@ export async function callDebateAPIStreaming(
   sparkySide: string,
   round: number,
   onDelta: (text: string) => void,
+  difficulty?: Difficulty,
 ): Promise<StreamDebateResult> {
   const response = await fetchWithRetry('/api/debate', {
     messages,
     topic,
     sparkySide,
     round,
+    difficulty,
   });
 
   const reader = response.body?.getReader();
@@ -117,8 +121,27 @@ export async function callDebateAPIStreaming(
 
 export async function callFeedbackAPI(
   transcript: readonly DebateEntry[],
+  difficulty?: Difficulty,
 ): Promise<FeedbackApiResponse> {
-  const response = await fetchWithRetry('/api/feedback', { transcript });
+  const response = await fetchWithRetry('/api/feedback', { transcript, difficulty });
 
   return response.json() as Promise<FeedbackApiResponse>;
+}
+
+export async function callHintAPI(
+  topic: string,
+  studentSide: string,
+  round: number,
+  transcript: readonly DebateEntry[],
+  difficulty?: Difficulty,
+): Promise<HintApiResponse> {
+  const response = await fetchWithRetry('/api/hint', {
+    topic,
+    studentSide,
+    round,
+    transcript,
+    difficulty,
+  });
+
+  return response.json() as Promise<HintApiResponse>;
 }

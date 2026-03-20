@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebateStore } from '@/lib/store';
 import { useShallow } from 'zustand/react/shallow';
-import { callDebateAPIStreaming, callFeedbackAPI } from '@/lib/debate-engine';
+import { callDebateAPIStreaming, callFeedbackAPI, callHintAPI } from '@/lib/debate-engine';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { playSound } from '@/lib/sounds';
+import { computeStars, saveToHistory } from '@/lib/debate-history';
 import type { DebateEntry, DebateSide, Topic } from '@/types/debate';
 
 function toKidFriendlyError(err: unknown): string {
@@ -55,6 +56,11 @@ export interface UseDebateReturn {
   pendingArgument: string | null;
   redoUsed: boolean;
 
+  // Hint
+  hintText: string | null;
+  hintUsed: boolean;
+  hintLoading: boolean;
+
   // Actions
   startDebate: (topic: Topic, studentSide: DebateSide) => Promise<void>;
   startStudentTurn: () => void;
@@ -62,6 +68,7 @@ export interface UseDebateReturn {
   submitTextArgument: (text: string) => void;
   confirmArgument: () => void;
   redoArgument: () => void;
+  requestHint: () => void;
   resetDebate: () => void;
 }
 
@@ -78,6 +85,8 @@ const selectActions = (s: ReturnType<typeof useDebateStore.getState>) => ({
   removeLastTranscriptEntry: s.removeLastTranscriptEntry,
   setPendingArgument: s.setPendingArgument,
   setRedoUsed: s.setRedoUsed,
+  setHintText: s.setHintText,
+  setHintUsed: s.setHintUsed,
   resetDebate: s.resetDebate,
   startNewDebate: s.startNewDebate,
 });
@@ -93,6 +102,8 @@ export function useDebate(): UseDebateReturn {
   const feedback = useDebateStore((s) => s.feedback);
   const pendingArgument = useDebateStore((s) => s.pendingArgument);
   const redoUsed = useDebateStore((s) => s.redoUsed);
+  const hintText = useDebateStore((s) => s.hintText);
+  const hintUsed = useDebateStore((s) => s.hintUsed);
 
   // Actions are stable refs — useShallow does shallow equality on the returned object,
   // so this won't cause re-renders since the function references never change.
@@ -102,6 +113,7 @@ export function useDebate(): UseDebateReturn {
   const synthesis = useSpeechSynthesis();
 
   const [error, setError] = useState<string | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
 
   // Guard against overlapping operations
   const processingRef = useRef(false);
@@ -135,13 +147,29 @@ export function useDebate(): UseDebateReturn {
         // Debate is over — fetch feedback
         actions.setTurnState('processing');
 
-        const currentTranscript = useDebateStore.getState().transcript;
+        const state = useDebateStore.getState();
+        const currentTranscript = state.transcript;
+        const currentDifficulty = state.difficulty;
+
         try {
-          const result = await callFeedbackAPI(currentTranscript);
+          const result = await callFeedbackAPI(currentTranscript, currentDifficulty);
           actions.setFeedback(result.feedback);
           actions.setScores(result.scores);
         } catch (err) {
           setError(toKidFriendlyError(err));
+        }
+
+        // Save completed debate to history (even if feedback API failed — uses fallback scoring)
+        if (state.topic && state.studentSide) {
+          const finalScores = useDebateStore.getState().scores;
+          const stars = computeStars(currentTranscript, finalScores);
+          saveToHistory({
+            topic: state.topic,
+            studentSide: state.studentSide,
+            difficulty: currentDifficulty,
+            scores: finalScores,
+            stars,
+          });
         }
 
         actions.setTurnState('feedback');
@@ -161,7 +189,7 @@ export function useDebate(): UseDebateReturn {
       processingRef.current = true;
       clearError();
 
-      const { topic, sparkySide, currentRound } = useDebateStore.getState();
+      const { topic, sparkySide, currentRound, difficulty: currentDifficulty } = useDebateStore.getState();
       if (!topic || !sparkySide) {
         processingRef.current = false;
         return;
@@ -211,6 +239,7 @@ export function useDebate(): UseDebateReturn {
               });
             }
           },
+          currentDifficulty,
         );
 
         // Cancel any pending RAF and finalize with cleaned text
@@ -295,6 +324,31 @@ export function useDebate(): UseDebateReturn {
     actions.setTurnState('student');
   }, [actions]);
 
+  const requestHint = useCallback(async () => {
+    const state = useDebateStore.getState();
+    if (!state.topic || !state.studentSide || state.hintUsed) return;
+
+    const roundAtRequest = state.currentRound;
+    setHintLoading(true);
+    try {
+      const result = await callHintAPI(
+        state.topic.text,
+        state.studentSide,
+        state.currentRound,
+        state.transcript,
+        state.difficulty,
+      );
+      // Guard against stale response — don't apply if the round advanced while we waited
+      if (useDebateStore.getState().currentRound !== roundAtRequest) return;
+      actions.setHintText(result.hint);
+      actions.setHintUsed(true);
+    } catch (err) {
+      setError(toKidFriendlyError(err));
+    } finally {
+      setHintLoading(false);
+    }
+  }, [actions]);
+
   const startDebate = useCallback(
     async (topic: Topic, studentSide: DebateSide) => {
       actions.setFeedback(null);
@@ -354,12 +408,17 @@ export function useDebate(): UseDebateReturn {
     pendingArgument,
     redoUsed,
 
+    hintText,
+    hintUsed,
+    hintLoading,
+
     startDebate,
     startStudentTurn,
     finishStudentTurn,
     submitTextArgument,
     confirmArgument,
     redoArgument,
+    requestHint,
     resetDebate,
   };
 }
