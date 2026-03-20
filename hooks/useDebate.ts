@@ -50,11 +50,17 @@ export interface UseDebateReturn {
   // Feedback
   feedback: string | null;
 
+  // Redo
+  pendingArgument: string | null;
+  redoUsed: boolean;
+
   // Actions
   startDebate: (topic: Topic, studentSide: DebateSide) => Promise<void>;
   startStudentTurn: () => void;
   finishStudentTurn: () => void;
   submitTextArgument: (text: string) => void;
+  confirmArgument: () => void;
+  redoArgument: () => void;
   resetDebate: () => void;
 }
 
@@ -178,23 +184,55 @@ export function useDebate(): UseDebateReturn {
     recognition.startListening();
   }, [store.turnState, recognition, clearError]);
 
+  const enterConfirmOrSubmit = useCallback(
+    (text: string) => {
+      const { redoUsed } = useDebateStore.getState();
+      if (redoUsed) {
+        // Already used redo — submit directly, skip confirmation
+        submitStudentArgument(text);
+      } else {
+        // Show confirmation step
+        store.setPendingArgument(text);
+        store.setTurnState('confirm');
+      }
+    },
+    [store, submitStudentArgument],
+  );
+
   const finishStudentTurn = useCallback(async () => {
     const finalText = await recognition.stopListening();
     if (!finalText.trim()) {
       // Nothing was said — stay on student turn
       return;
     }
-    submitStudentArgument(finalText.trim());
-  }, [recognition, submitStudentArgument]);
+    enterConfirmOrSubmit(finalText.trim());
+  }, [recognition, enterConfirmOrSubmit]);
 
   const submitTextArgument = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      submitStudentArgument(trimmed);
+      enterConfirmOrSubmit(trimmed);
     },
-    [submitStudentArgument],
+    [enterConfirmOrSubmit],
   );
+
+  const confirmArgument = useCallback(() => {
+    const { pendingArgument } = useDebateStore.getState();
+    if (!pendingArgument) {
+      // Guard: no pending argument — reset to student turn
+      store.setTurnState('student');
+      return;
+    }
+    store.setPendingArgument(null);
+    submitStudentArgument(pendingArgument);
+  }, [store, submitStudentArgument]);
+
+  const redoArgument = useCallback(() => {
+    store.setPendingArgument(null);
+    store.setRedoUsed(true);
+    store.setTurnState('student');
+  }, [store]);
 
   const startDebate = useCallback(
     async (topic: Topic, studentSide: DebateSide) => {
@@ -252,10 +290,15 @@ export function useDebate(): UseDebateReturn {
     error,
     feedback: store.feedback,
 
+    pendingArgument: store.pendingArgument,
+    redoUsed: store.redoUsed,
+
     startDebate,
     startStudentTurn,
     finishStudentTurn,
     submitTextArgument,
+    confirmArgument,
+    redoArgument,
     resetDebate,
   };
 }

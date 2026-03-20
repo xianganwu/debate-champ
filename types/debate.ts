@@ -9,7 +9,7 @@ export type TopicCategory = 'fun' | 'school' | 'big-ideas' | 'anime';
 
 export type DebateSide = 'FOR' | 'AGAINST';
 
-export type TurnState = 'idle' | 'student' | 'processing' | 'sparky' | 'feedback';
+export type TurnState = 'idle' | 'student' | 'confirm' | 'processing' | 'sparky' | 'feedback';
 
 export interface DebateEntry {
   readonly speaker: 'student' | 'sparky';
@@ -40,6 +40,10 @@ export interface DebateState {
   feedback: string | null;
   scores: DebateScores | null;
 
+  // Redo
+  pendingArgument: string | null;
+  redoUsed: boolean;
+
   // Actions
   setTopic: (topic: Topic) => void;
   setSides: (studentSide: DebateSide) => void;
@@ -50,6 +54,8 @@ export interface DebateState {
   setScores: (scores: DebateScores | null) => void;
   updateLastTranscriptText: (text: string) => void;
   removeLastTranscriptEntry: () => void;
+  setPendingArgument: (text: string | null) => void;
+  setRedoUsed: (used: boolean) => void;
   resetDebate: () => void;
   startNewDebate: (topic: Topic, studentSide: DebateSide, introEntry: DebateEntry) => void;
 }

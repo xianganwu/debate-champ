@@ -54,6 +54,7 @@ export default function DebatePage() {
 
   const sparkyState = getSparkyState(debate.turnState, debate.isSpeaking);
   const isComplete = debate.turnState === 'feedback';
+  const isConfirming = debate.turnState === 'confirm';
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-dark">
@@ -180,6 +181,46 @@ export default function DebatePage() {
                 >
                   See your results! 🏆
                 </Button>
+              </motion.div>
+            ) : isConfirming ? (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex flex-col items-center gap-3"
+              >
+                {/* Preview of pending argument */}
+                <div
+                  className="max-w-sm rounded-xl bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-white/80 italic max-h-24 overflow-y-auto"
+                  aria-live="polite"
+                >
+                  &ldquo;{debate.pendingArgument}&rdquo;
+                </div>
+
+                {/* Confirm / Redo buttons */}
+                <div className="flex gap-3">
+                  <motion.button
+                    onClick={debate.redoArgument}
+                    whileTap={{ scale: 0.95 }}
+                    className="rounded-xl border border-white/15 bg-surface px-5 py-2.5 text-sm font-bold text-white/70 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    aria-label="Redo your argument"
+                  >
+                    Redo
+                  </motion.button>
+                  <motion.button
+                    onClick={debate.confirmArgument}
+                    whileTap={{ scale: 0.95 }}
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    aria-label="Send your argument to Sparky"
+                  >
+                    Send
+                  </motion.button>
+                </div>
+
+                <p className="text-xs text-white/30">
+                  {debate.redoUsed ? 'Redo used' : 'You can redo once per round'}
+                </p>
               </motion.div>
             ) : (
               <motion.div key="voice" layout>

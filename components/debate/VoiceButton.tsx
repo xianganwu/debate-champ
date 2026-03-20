@@ -20,6 +20,7 @@ function getMode(turnState: TurnState, isListening: boolean): ButtonMode {
   if (turnState === 'processing') return 'processing';
   if (isListening) return 'recording';
   if (turnState === 'student') return 'ready';
+  // 'confirm', 'idle', 'sparky', 'feedback' all map to waiting
   return 'waiting';
 }
 

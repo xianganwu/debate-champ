@@ -11,6 +11,8 @@ const INITIAL_STATE = {
   transcript: [] as readonly DebateEntry[],
   feedback: null as string | null,
   scores: null as DebateScores | null,
+  pendingArgument: null as string | null,
+  redoUsed: false,
 };
 
 export const useDebateStore = create<DebateState>()((set) => ({
@@ -32,6 +34,8 @@ export const useDebateStore = create<DebateState>()((set) => ({
   advanceRound: () =>
     set((state) => ({
       currentRound: Math.min(state.currentRound + 1, state.maxRounds),
+      redoUsed: false,
+      pendingArgument: null,
     })),
 
   setTurnState: (turnState: TurnState) => set({ turnState }),
@@ -52,6 +56,10 @@ export const useDebateStore = create<DebateState>()((set) => ({
     set((state) => ({
       transcript: state.transcript.slice(0, -1),
     })),
+
+  setPendingArgument: (text: string | null) => set({ pendingArgument: text }),
+
+  setRedoUsed: (used: boolean) => set({ redoUsed: used }),
 
   resetDebate: () => set(INITIAL_STATE),
 
