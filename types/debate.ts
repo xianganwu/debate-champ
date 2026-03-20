@@ -18,6 +18,12 @@ export interface DebateEntry {
   readonly timestamp: Date;
 }
 
+export interface DebateScores {
+  readonly reasoning: number;
+  readonly persuasion: number;
+  readonly engagement: number;
+}
+
 export interface DebateState {
   // Setup
   topic: Topic | null;
@@ -31,7 +37,8 @@ export interface DebateState {
 
   // Content
   transcript: readonly DebateEntry[];
-  studentScore: number;
+  feedback: string | null;
+  scores: DebateScores | null;
 
   // Actions
   setTopic: (topic: Topic) => void;
@@ -39,6 +46,10 @@ export interface DebateState {
   addTranscriptEntry: (entry: DebateEntry) => void;
   advanceRound: () => void;
   setTurnState: (state: TurnState) => void;
+  setFeedback: (feedback: string | null) => void;
+  setScores: (scores: DebateScores | null) => void;
+  updateLastTranscriptText: (text: string) => void;
+  removeLastTranscriptEntry: () => void;
   resetDebate: () => void;
   startNewDebate: (topic: Topic, studentSide: DebateSide, introEntry: DebateEntry) => void;
 }
@@ -50,16 +61,11 @@ export interface DebateApiRequest {
   readonly round: number;
 }
 
-export interface DebateApiResponse {
-  readonly response: string;
-  readonly isComplete: boolean;
-}
-
 export interface FeedbackApiRequest {
   readonly transcript: readonly DebateEntry[];
 }
 
 export interface FeedbackApiResponse {
   readonly feedback: string;
-  readonly score: number;
+  readonly scores: DebateScores | null;
 }

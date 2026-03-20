@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { DebateApiRequest, DebateApiResponse } from '@/types/debate';
+import type { DebateApiRequest } from '@/types/debate';
 import { SPARKY_SYSTEM_PROMPT, buildConversationHistory } from '@/lib/prompts';
 
 export const maxDuration = 30;
@@ -31,27 +31,50 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const conversationHistory = buildConversationHistory(messages);
 
-    const result = await anthropic.messages.create({
+    const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 250,
       system: SPARKY_SYSTEM_PROMPT(topic, sparkySide, round),
       messages: conversationHistory,
     });
 
-    const textBlock = result.content.find((block) => block.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      return Response.json(
-        { error: 'No text response from Claude' },
-        { status: 502 },
-      );
-    }
+    const encoder = new TextEncoder();
 
-    const rawText = textBlock.text;
-    const isComplete = rawText.includes(DEBATE_COMPLETE_TAG);
-    const response = rawText.replace(DEBATE_COMPLETE_TAG, '').trim();
+    const readable = new ReadableStream({
+      async start(controller) {
+        let fullText = '';
 
-    const responseBody: DebateApiResponse = { response, isComplete };
-    return Response.json(responseBody);
+        stream.on('text', (text) => {
+          fullText += text;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text })}\n\n`));
+        });
+
+        stream.on('end', () => {
+          const isComplete = fullText.includes(DEBATE_COMPLETE_TAG);
+          const cleaned = fullText.replace(DEBATE_COMPLETE_TAG, '').trim();
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'done', text: cleaned, isComplete })}\n\n`),
+          );
+          controller.close();
+        });
+
+        stream.on('error', (error) => {
+          const message = error instanceof Error ? error.message : 'Stream error';
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`),
+          );
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unknown error calling Claude API';

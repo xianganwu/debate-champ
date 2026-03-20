@@ -1,10 +1,38 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { FeedbackApiRequest, FeedbackApiResponse } from '@/types/debate';
+import type { DebateScores, FeedbackApiRequest, FeedbackApiResponse } from '@/types/debate';
 import { FEEDBACK_PROMPT } from '@/lib/prompts';
 
 export const maxDuration = 30;
 
 const anthropic = new Anthropic();
+
+function parseScores(text: string): { scores: DebateScores | null; feedback: string } {
+  const match = text.match(/\[SCORES\]([\s\S]*?)\[\/SCORES\]/);
+  if (!match) {
+    return { scores: null, feedback: text.trim() };
+  }
+
+  const feedback = text.replace(/\[SCORES\][\s\S]*?\[\/SCORES\]/, '').trim();
+
+  try {
+    const parsed = JSON.parse(match[1]) as Record<string, unknown>;
+    const r = Number(parsed.reasoning);
+    const p = Number(parsed.persuasion);
+    const e = Number(parsed.engagement);
+
+    if (isNaN(r) || isNaN(p) || isNaN(e)) {
+      return { scores: null, feedback };
+    }
+
+    const clamp = (v: number) => Math.max(1, Math.min(5, Math.round(v)));
+    return {
+      scores: { reasoning: clamp(r), persuasion: clamp(p), engagement: clamp(e) },
+      feedback,
+    };
+  } catch {
+    return { scores: null, feedback };
+  }
+}
 
 export async function POST(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -29,7 +57,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 200,
+      max_tokens: 300,
       messages: [
         {
           role: 'user',
@@ -46,10 +74,8 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const responseBody: FeedbackApiResponse = {
-      feedback: textBlock.text.trim(),
-      score: 0,
-    };
+    const { scores, feedback } = parseScores(textBlock.text);
+    const responseBody: FeedbackApiResponse = { feedback, scores };
     return Response.json(responseBody);
   } catch (error) {
     const message =

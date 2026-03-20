@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDebateStore } from '@/lib/store';
-import { callFeedbackAPI } from '@/lib/debate-engine';
 import { SparkyAvatar } from '@/components/debate/SparkyAvatar';
 import { TranscriptBubble } from '@/components/debate/TranscriptBubble';
 import { Button } from '@/components/ui/Button';
-import type { DebateEntry } from '@/types/debate';
+import type { DebateEntry, DebateScores } from '@/types/debate';
 
 // ---------------------------------------------------------------------------
 // Confetti burst — pure CSS particles, no external dependency
@@ -108,6 +107,49 @@ function StarRating({ stars }: { stars: number }) {
 }
 
 // ---------------------------------------------------------------------------
+// Category breakdown — shows per-category scores as filled dots
+// ---------------------------------------------------------------------------
+const CATEGORY_LABELS: { key: keyof DebateScores; label: string }[] = [
+  { key: 'reasoning', label: 'Reasoning' },
+  { key: 'persuasion', label: 'Persuasion' },
+  { key: 'engagement', label: 'Engagement' },
+];
+
+function CategoryBreakdown({ scores }: { scores: DebateScores }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1.8 }}
+      className="flex w-full max-w-xs flex-col gap-2"
+    >
+      {CATEGORY_LABELS.map(({ key, label }) => (
+        <div key={key} className="flex items-center gap-3">
+          <span className="w-24 text-right text-xs font-bold text-white/50">
+            {label}
+          </span>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <motion.div
+                key={n}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 2 + n * 0.05 }}
+                className={`h-2.5 w-2.5 rounded-full ${
+                  n <= scores[key]
+                    ? 'bg-secondary shadow-[0_0_6px_rgba(78,205,196,0.4)]'
+                    : 'bg-white/10'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Typewriter text — reveals feedback word by word
 // ---------------------------------------------------------------------------
 function TypewriterText({ text }: { text: string }) {
@@ -161,16 +203,19 @@ function computeStars(transcript: readonly DebateEntry[]): number {
 // ---------------------------------------------------------------------------
 export default function ResultsPage() {
   const router = useRouter();
-  const { topic, studentSide, transcript, resetDebate } = useDebateStore();
+  const { topic, studentSide, transcript, feedback, scores, resetDebate } = useDebateStore();
 
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [feedbackLoading, setFeedbackLoading] = useState(true);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
 
-  const stars = useMemo(() => computeStars(transcript), [transcript]);
+  const stars = useMemo(() => {
+    if (scores) {
+      const avg = (scores.reasoning + scores.persuasion + scores.engagement) / 3;
+      return Math.max(1, Math.min(5, Math.round(avg)));
+    }
+    return computeStars(transcript);
+  }, [scores, transcript]);
 
   // Redirect if no debate data
   useEffect(() => {
@@ -178,25 +223,6 @@ export default function ResultsPage() {
       router.replace('/');
     }
   }, [topic, transcript.length, router]);
-
-  const fetchFeedback = useCallback(async () => {
-    if (transcript.length === 0) return;
-    setFeedbackLoading(true);
-    setFeedbackError(null);
-    try {
-      const result = await callFeedbackAPI(transcript);
-      setFeedback(result.feedback);
-    } catch {
-      setFeedbackError("Sparky's brain froze! Tap retry to hear what he thinks.");
-    } finally {
-      setFeedbackLoading(false);
-    }
-  }, [transcript]);
-
-  // Fetch feedback on mount
-  useEffect(() => {
-    fetchFeedback();
-  }, [fetchFeedback]);
 
   // Dismiss confetti after 3s
   useEffect(() => {
@@ -273,6 +299,9 @@ export default function ResultsPage() {
         {/* Star rating */}
         <StarRating stars={stars} />
 
+        {/* Category breakdown (only when AI scores available) */}
+        {scores && <CategoryBreakdown scores={scores} />}
+
         {/* Sparky feedback card */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -288,38 +317,10 @@ export default function ResultsPage() {
               Sparky says...
             </span>
 
-            {feedbackLoading && (
-              <div className="flex items-center gap-2 py-2">
-                <motion.div
-                  className="h-2 w-2 rounded-full bg-secondary"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity }}
-                />
-                <motion.div
-                  className="h-2 w-2 rounded-full bg-secondary"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
-                />
-                <motion.div
-                  className="h-2 w-2 rounded-full bg-secondary"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
-                />
-              </div>
-            )}
-
-            {feedbackError && (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm text-accent">
-                  {feedbackError}
-                </p>
-                <button
-                  onClick={fetchFeedback}
-                  className="self-start rounded-lg bg-secondary/20 px-3 py-1.5 text-xs font-bold text-secondary transition-colors hover:bg-secondary/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  Retry
-                </button>
-              </div>
+            {!feedback && (
+              <p className="text-sm text-white/50">
+                Sparky&apos;s feedback wasn&apos;t available — but great job debating!
+              </p>
             )}
 
             {feedback && <TypewriterText text={feedback} />}

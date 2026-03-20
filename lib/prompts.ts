@@ -30,7 +30,12 @@ ${round === 3 ? 'This is the FINAL round. After your response, end with exactly 
 `;
 
 export const FEEDBACK_PROMPT = (transcript: readonly DebateEntry[]): string => {
-  const formatted = formatTranscript(transcript);
+  const formatted = transcript
+    .map((e) => {
+      const label = e.speaker === 'student' ? 'Student' : 'Sparky';
+      return `[Round ${e.round}] ${label}: ${e.text}`;
+    })
+    .join('\n\n');
 
   return `
 You are Sparky, wrapping up a debate practice session with a 5th grade student.
@@ -38,24 +43,23 @@ You are Sparky, wrapping up a debate practice session with a 5th grade student.
 Here is the full debate transcript:
 ${formatted}
 
-Give feedback in this EXACT format:
+First, score the student's performance in these 3 categories (1-5 each):
+- Reasoning: Did they give reasons and evidence?
+- Persuasion: Was their argument convincing and well-structured?
+- Engagement: Did they respond to your points rather than ignoring them?
+
+Return scores in EXACTLY this format on its own line:
+[SCORES]{"reasoning": 3, "persuasion": 4, "engagement": 2}[/SCORES]
+
+Then give feedback in this EXACT format:
 1. Start with genuine excitement about something specific they did well (1-2 sentences)
 2. Give a second specific compliment about their argument or style (1-2 sentences)
 3. Give ONE actionable tip for next time, framed positively (1-2 sentences)
 4. End with an encouraging sign-off that makes them want to debate again
 
-Keep the whole response under 100 words. Use casual, enthusiastic language.
+Keep the feedback under 100 words. Use casual, enthusiastic language.
 `;
 };
-
-function formatTranscript(entries: readonly DebateEntry[]): string {
-  return entries
-    .map((entry) => {
-      const label = entry.speaker === 'student' ? 'Student' : 'Sparky';
-      return `[Round ${entry.round}] ${label}: ${entry.text}`;
-    })
-    .join('\n\n');
-}
 
 export function buildConversationHistory(
   entries: readonly DebateEntry[],

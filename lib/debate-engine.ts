@@ -1,11 +1,17 @@
 import type {
-  DebateApiResponse,
   DebateEntry,
   FeedbackApiResponse,
 } from '@/types/debate';
 
+export interface StreamDebateResult {
+  readonly fullText: string;
+  readonly isComplete: boolean;
+}
+
 const MAX_RETRIES = 2;
 const BASE_DELAY_MS = 500;
+
+class ClientError extends Error {}
 
 async function fetchWithRetry(
   url: string,
@@ -14,6 +20,11 @@ async function fetchWithRetry(
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -28,30 +39,31 @@ async function fetchWithRetry(
         | null;
       const message = errorData?.error ?? `Request failed with status ${response.status}`;
 
+      // 4xx errors are permanent — fail immediately, don't retry
       if (response.status >= 400 && response.status < 500) {
-        throw new Error(message);
+        throw new ClientError(message);
       }
 
+      // 5xx errors are retriable
       lastError = new Error(message);
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      // 4xx errors bubble up immediately
+      if (error instanceof ClientError) throw error;
 
-      if (attempt < MAX_RETRIES) {
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
   throw lastError ?? new Error('Request failed after retries');
 }
 
-export async function callDebateAPI(
+export async function callDebateAPIStreaming(
   messages: readonly DebateEntry[],
   topic: string,
   sparkySide: string,
   round: number,
-): Promise<DebateApiResponse> {
+  onDelta: (text: string) => void,
+): Promise<StreamDebateResult> {
   const response = await fetchWithRetry('/api/debate', {
     messages,
     topic,
@@ -59,7 +71,48 @@ export async function callDebateAPI(
     round,
   });
 
-  return response.json() as Promise<DebateApiResponse>;
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response stream');
+
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let isComplete = false;
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    // Keep the last potentially incomplete line in the buffer
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const json = line.slice(6);
+      try {
+        const event = JSON.parse(json) as
+          | { type: 'delta'; text: string }
+          | { type: 'done'; text: string; isComplete: boolean }
+          | { type: 'error'; error: string };
+
+        if (event.type === 'delta') {
+          onDelta(event.text);
+        } else if (event.type === 'done') {
+          fullText = event.text;
+          isComplete = event.isComplete;
+        } else if (event.type === 'error') {
+          throw new Error(event.error);
+        }
+      } catch (e) {
+        if (e instanceof SyntaxError) continue;
+        throw e;
+      }
+    }
+  }
+
+  return { fullText, isComplete };
 }
 
 export async function callFeedbackAPI(

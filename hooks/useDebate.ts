@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useDebateStore } from '@/lib/store';
-import { callDebateAPI, callFeedbackAPI } from '@/lib/debate-engine';
+import { callDebateAPIStreaming, callFeedbackAPI } from '@/lib/debate-engine';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { playSound } from '@/lib/sounds';
@@ -64,7 +64,6 @@ export function useDebate(): UseDebateReturn {
   const synthesis = useSpeechSynthesis();
 
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   // Guard against overlapping operations
   const processingRef = useRef(false);
@@ -73,8 +72,6 @@ export function useDebate(): UseDebateReturn {
 
   const playSparkysResponse = useCallback(
     async (text: string, isComplete: boolean) => {
-      store.setTurnState('sparky');
-
       try {
         await synthesis.speak(text);
       } catch {
@@ -89,7 +86,8 @@ export function useDebate(): UseDebateReturn {
         const currentTranscript = useDebateStore.getState().transcript;
         try {
           const result = await callFeedbackAPI(currentTranscript);
-          setFeedback(result.feedback);
+          store.setFeedback(result.feedback);
+          store.setScores(result.scores);
         } catch (err) {
           setError(toKidFriendlyError(err));
         }
@@ -129,26 +127,41 @@ export function useDebate(): UseDebateReturn {
 
       try {
         const currentTranscript = useDebateStore.getState().transcript;
-        const result = await callDebateAPI(
-          currentTranscript,
-          topic.text,
-          sparkySide,
-          currentRound,
-        );
 
-        // Record Sparky's entry
+        // Add a placeholder entry for Sparky that will be updated as chunks arrive
         const sparkyEntry: DebateEntry = {
           speaker: 'sparky',
-          text: result.response,
+          text: '',
           round: currentRound,
           timestamp: new Date(),
         };
         store.addTranscriptEntry(sparkyEntry);
+        store.setTurnState('sparky');
 
-        // Play Sparky's response via TTS (mic stays disabled)
+        let streamedText = '';
+        const result = await callDebateAPIStreaming(
+          currentTranscript,
+          topic.text,
+          sparkySide,
+          currentRound,
+          (delta) => {
+            streamedText += delta;
+            store.updateLastTranscriptText(streamedText);
+          },
+        );
+
+        // Finalize with cleaned text from the 'done' event
+        store.updateLastTranscriptText(result.fullText);
+
+        // Play Sparky's response via TTS
         playSound('whoosh');
-        await playSparkysResponse(result.response, result.isComplete);
+        await playSparkysResponse(result.fullText, result.isComplete);
       } catch (err) {
+        // Remove the empty sparky placeholder if streaming failed
+        const lastEntry = useDebateStore.getState().transcript.at(-1);
+        if (lastEntry?.speaker === 'sparky' && !lastEntry.text) {
+          store.removeLastTranscriptEntry();
+        }
         setError(toKidFriendlyError(err));
         // Re-enable student turn so they can retry
         store.setTurnState('student');
@@ -185,7 +198,8 @@ export function useDebate(): UseDebateReturn {
 
   const startDebate = useCallback(
     async (topic: Topic, studentSide: DebateSide) => {
-      setFeedback(null);
+      store.setFeedback(null);
+      store.setScores(null);
       clearError();
 
       const sparkySide = studentSide === 'FOR' ? 'AGAINST' : 'FOR';
@@ -219,7 +233,6 @@ export function useDebate(): UseDebateReturn {
     recognition.reset();
     synthesis.cancel();
     store.resetDebate();
-    setFeedback(null);
     clearError();
   }, [recognition, synthesis, store, clearError]);
 
@@ -237,7 +250,7 @@ export function useDebate(): UseDebateReturn {
     transcript: store.transcript,
 
     error,
-    feedback,
+    feedback: store.feedback,
 
     startDebate,
     startStudentTurn,
