@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SparkyIntro, isFirstVisit, markVisited } from '@/components/home/SparkyIntro';
 import { TopicGrid } from '@/components/home/TopicGrid';
 import { SideSelector } from '@/components/home/SideSelector';
 import { Button } from '@/components/ui/Button';
@@ -57,6 +58,12 @@ export default function HomePage() {
       ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window),
   );
   const [compatDismissed, setCompatDismissed] = useState(false);
+  const [showIntro, setShowIntro] = useState(() => isFirstVisit());
+
+  const dismissIntro = useCallback(() => {
+    setShowIntro(false);
+    markVisited();
+  }, []);
 
   const canStart = selectedTopic !== null && selectedSide !== null;
 
@@ -79,6 +86,11 @@ export default function HomePage() {
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
       <FloatingShapes />
+
+      {/* First-visit Sparky intro overlay */}
+      <AnimatePresence>
+        {showIntro && <SparkyIntro onDismiss={dismissIntro} />}
+      </AnimatePresence>
 
       <main className="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-7 px-4 py-10 sm:gap-10 sm:px-5 sm:py-16">
         {/* Hero */}

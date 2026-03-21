@@ -3,6 +3,7 @@ export interface Topic {
   readonly text: string;
   readonly category: TopicCategory;
   readonly emoji: string;
+  readonly hint: string;
 }
 
 export type TopicCategory = 'fun' | 'school' | 'big-ideas' | 'anime';

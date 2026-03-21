@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Topic, TopicCategory } from '@/types/debate';
 
 interface TopicCardProps {
@@ -24,6 +25,33 @@ const categoryLabels: Record<TopicCategory, string> = {
 };
 
 export function TopicCard({ topic, isSelected, onSelect }: TopicCardProps) {
+  const [showHint, setShowHint] = useState(false);
+  const hintRef = useRef<HTMLDivElement>(null);
+
+  const toggleHint = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowHint((v) => !v);
+  }, []);
+
+  // Dismiss hint on outside click (covers tapping another card, tapping backdrop, etc.)
+  useEffect(() => {
+    if (!showHint) return;
+    function handleClick(e: MouseEvent) {
+      if (hintRef.current && !hintRef.current.contains(e.target as Node)) {
+        setShowHint(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowHint(false);
+    }
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showHint]);
+
   return (
     <motion.button
       layout
@@ -52,6 +80,52 @@ export function TopicCard({ topic, isSelected, onSelect }: TopicCardProps) {
       <span className={`mt-auto text-xs font-medium uppercase tracking-wider ${categoryColors[topic.category]}`}>
         {categoryLabels[topic.category]}
       </span>
+
+      {/* Hint icon — 44px touch target wrapping 24px visual icon (WCAG 2.5.5 + kid-friendly) */}
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={toggleHint}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowHint((v) => !v); } }}
+        aria-label={`Hint for: ${topic.text}`}
+        aria-expanded={showHint}
+        className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center"
+      >
+        <span
+          className={`
+            flex h-6 w-6 items-center justify-center
+            rounded-full text-xs transition-all duration-200
+            ${showHint
+              ? 'bg-accent text-dark'
+              : 'bg-white/10 text-white/40 hover:bg-white/20 hover:text-white/70'
+            }
+          `}
+          aria-hidden
+        >
+          💡
+        </span>
+      </span>
+
+      {/* Hint popover */}
+      <AnimatePresence>
+        {showHint && (
+          <motion.div
+            ref={hintRef}
+            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-12 right-1 z-20 w-56 rounded-xl border border-accent/20 bg-dark/95 px-3.5 py-2.5 shadow-xl shadow-black/40 backdrop-blur-sm"
+          >
+            <p className="text-xs leading-relaxed text-white/80">
+              {topic.hint}
+            </p>
+            {/* Arrow */}
+            <div className="absolute -bottom-1.5 right-4 h-3 w-3 rotate-45 border-b border-r border-accent/20 bg-dark/95" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isSelected && (
         <motion.span
