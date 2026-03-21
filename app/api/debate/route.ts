@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { DebateApiRequest } from '@/types/debate';
 import { SPARKY_SYSTEM_PROMPT, buildConversationHistory } from '@/lib/prompts';
+import { checkTopicAppropriateness } from '@/lib/topic-filter';
 
 export const maxDuration = 30;
 
@@ -37,6 +38,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (messages.some((m) => typeof m.text !== 'string' || m.text.length > 2000)) {
     return Response.json({ error: 'Message text too long' }, { status: 400 });
+  }
+  const topicWarning = checkTopicAppropriateness(topic);
+  if (topicWarning) {
+    return Response.json({ error: 'Topic not appropriate for debate practice' }, { status: 400 });
   }
 
   try {

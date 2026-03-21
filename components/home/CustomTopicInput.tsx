@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import type { Topic } from '@/types/debate';
+import { checkTopicAppropriateness } from '@/lib/topic-filter';
 
 const MIN_CHARS = 10;
 const MAX_CHARS = 150;
@@ -30,6 +31,10 @@ function validateTopic(text: string): string | null {
   if (trimmed.length > MAX_CHARS) return `Max ${MAX_CHARS} characters`;
   const wordCount = trimmed.split(/\s+/).length;
   if (wordCount < MIN_WORDS) return `Use at least ${MIN_WORDS} words`;
+  // Content check runs after format checks — avoids showing content warnings
+  // for partially typed text that's too short to be meaningful yet.
+  const contentWarning = checkTopicAppropriateness(trimmed);
+  if (contentWarning) return contentWarning;
   return null; // valid
 }
 

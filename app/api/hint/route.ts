@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { HintApiRequest, HintApiResponse } from '@/types/debate';
 import { HINT_PROMPT } from '@/lib/prompts';
+import { checkTopicAppropriateness } from '@/lib/topic-filter';
 
 export const maxDuration = 15;
 
@@ -35,6 +36,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (Array.isArray(transcript) && transcript.some((e) => typeof e.text !== 'string' || e.text.length > 2000)) {
     return Response.json({ error: 'Transcript entry too long' }, { status: 400 });
+  }
+  const topicWarning = checkTopicAppropriateness(topic);
+  if (topicWarning) {
+    return Response.json({ error: 'Topic not appropriate for debate practice' }, { status: 400 });
   }
 
   try {
