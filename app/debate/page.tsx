@@ -23,7 +23,7 @@ function getSparkyState(turnState: string, isSpeaking: boolean) {
 export default function DebatePage() {
   const router = useRouter();
   const debate = useDebate();
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
   const [compatDismissed, setCompatDismissed] = useState(false);
 
@@ -44,12 +44,19 @@ export default function DebatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-scroll transcript (raf ensures the new bubble is painted before scrolling)
+  // Auto-scroll transcript on any content change (including streaming updates).
+  // Uses scrollTop instead of scrollIntoView for smooth streaming behavior.
+  // Only scrolls if user is near the bottom — won't interrupt manual scroll-up.
   useEffect(() => {
-    requestAnimationFrame(() => {
-      transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    });
-  }, [debate.transcript.length]);
+    const el = transcriptContainerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNearBottom) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }, [debate.transcript]);
 
   if (!debate.topic) {
     return null;
@@ -126,12 +133,11 @@ export default function DebatePage() {
         )}
 
         {/* Transcript area */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 sm:px-6">
+        <div ref={transcriptContainerRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-2 sm:px-6">
           <div className="mx-auto flex max-w-2xl flex-col gap-3">
             {debate.transcript.map((entry, i) => (
               <TranscriptBubble key={i} entry={entry} />
             ))}
-            <div ref={transcriptEndRef} />
           </div>
 
           {/* Empty state */}
