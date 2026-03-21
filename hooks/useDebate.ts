@@ -134,14 +134,21 @@ export function useDebate(): UseDebateReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  /**
+   * After Sparky's response arrives, play it via TTS and advance the debate.
+   *
+   * CRITICAL: TTS is fire-and-forget. The debate flow (advancing rounds,
+   * fetching feedback) must NEVER be blocked by speech. If TTS hangs
+   * (Chrome pause bug, tab backgrounding, etc.), the user can still
+   * see the transcript and continue debating.
+   */
   const playSparkysResponse = useCallback(
     async (text: string, isComplete: boolean) => {
-      try {
-        await synthesis.speak(text);
-      } catch {
-        // TTS failure is non-fatal — transcript is still visible
+      // Fire TTS in the background — do NOT await it.
+      // The debate state machine advances immediately below.
+      synthesis.speak(text).catch(() => {
         console.error('TTS playback failed, continuing');
-      }
+      });
 
       if (isComplete) {
         // Debate is over — fetch feedback
@@ -271,8 +278,11 @@ export function useDebate(): UseDebateReturn {
   const startStudentTurn = useCallback(() => {
     if (turnState !== 'student') return;
     clearError();
+    // Cancel any ongoing TTS before starting mic — Chrome can freeze
+    // if speech synthesis and recognition run simultaneously.
+    synthesis.cancel();
     recognition.startListening();
-  }, [turnState, recognition, clearError]);
+  }, [turnState, recognition, synthesis, clearError]);
 
   const enterConfirmOrSubmit = useCallback(
     (text: string) => {
@@ -369,11 +379,12 @@ export function useDebate(): UseDebateReturn {
       // This prevents the debate page from briefly rendering null when topic goes to null.
       actions.startNewDebate(topic, studentSide, introEntry);
 
-      try {
-        await synthesis.speak(intro);
-      } catch {
+      // Fire TTS in the background — do NOT await it.
+      // The student can read the intro in the transcript and start speaking
+      // immediately, even if TTS is slow or broken.
+      synthesis.speak(intro).catch(() => {
         console.error('Intro TTS failed, continuing');
-      }
+      });
 
       // Hand off to student for round 1
       actions.setTurnState('student');

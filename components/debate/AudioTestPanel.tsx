@@ -20,8 +20,17 @@ interface TestResult {
 /** How long the mic test listens for speech */
 const MIC_LISTEN_MS = 6000;
 
-export function AudioTestPanel() {
-  const [open, setOpen] = useState(false);
+/**
+ * Inner panel content — only mounts when the panel is open.
+ *
+ * This is critical: useSpeechSynthesis and useSpeechRecognition create
+ * event listeners and manage the global window.speechSynthesis singleton.
+ * If always mounted alongside the debate page's hooks, they conflict
+ * (cancel() from one kills speech started by the other, resume() intervals
+ * compete, etc.). By lazy-mounting, the hooks only exist while the user
+ * is actively using the diagnostic panel.
+ */
+function AudioTestContent() {
   const [results, setResults] = useState<TestResult>({
     tts: 'idle',
     stt: 'idle',
@@ -147,6 +156,90 @@ export function AudioTestPanel() {
   };
 
   return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-white/10 bg-surface p-4 shadow-xl backdrop-blur-sm"
+    >
+      <h3 className="mb-3 font-display text-sm font-bold text-white/80">
+        Audio Diagnostics
+      </h3>
+
+      {/* System info */}
+      <div className="mb-3 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/50 space-y-0.5">
+        <div>TTS: {synthesis.isSupported ? 'supported' : 'NOT supported'}</div>
+        <div>STT: {recognition.isSupported ? 'supported' : 'NOT supported'}</div>
+        <div>Voice: {synthesis.voiceName ?? 'loading...'}</div>
+        <div>Voices loaded: {synthesis.voicesLoaded ? 'yes' : 'no'}</div>
+        {recognition.lastError && (
+          <div className="text-red-400">Last STT error: {recognition.lastError}</div>
+        )}
+      </div>
+
+      {/* Test results */}
+      <div className="mb-3 space-y-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-white/70">1. Sound effects</span>
+          {statusIcon(results.audio)}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-white/70">2. Text-to-Speech</span>
+          {statusIcon(results.tts)}
+        </div>
+        {results.ttsError && (
+          <p className="text-red-400/80 pl-4">{results.ttsError}</p>
+        )}
+
+        <div className="flex items-center justify-between">
+          <span className="text-white/70">
+            3. Microphone
+            {results.stt === 'testing' && micCountdown > 0 && (
+              <span className="ml-1 text-accent">— speak now! ({micCountdown}s)</span>
+            )}
+          </span>
+          {statusIcon(results.stt)}
+        </div>
+        {results.stt === 'testing' && recognition.transcript && (
+          <p className="text-accent/80 pl-4 italic">
+            Hearing: &ldquo;{recognition.transcript}&rdquo;
+          </p>
+        )}
+        {results.sttError && (
+          <p className="text-red-400/80 pl-4">{results.sttError}</p>
+        )}
+        {results.sttTranscript && (
+          <p className="text-green-400/80 pl-4">
+            Heard: &ldquo;{results.sttTranscript}&rdquo;
+          </p>
+        )}
+      </div>
+
+      <button
+        onClick={runTests}
+        disabled={running}
+        className="w-full rounded-lg bg-primary px-3 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {running ? 'Running tests...' : 'Run Audio Tests'}
+      </button>
+    </motion.div>
+  );
+}
+
+/**
+ * Audio diagnostic panel — toggle button + lazy-mounted content.
+ *
+ * The speech hooks (useSpeechSynthesis, useSpeechRecognition) are only
+ * instantiated when the panel is open. This prevents them from conflicting
+ * with the debate page's own speech hooks, which manage the same global
+ * window.speechSynthesis singleton.
+ */
+export function AudioTestPanel() {
+  const [open, setOpen] = useState(false);
+
+  return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
@@ -161,77 +254,7 @@ export function AudioTestPanel() {
       </button>
 
       <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-white/10 bg-surface p-4 shadow-xl backdrop-blur-sm"
-          >
-            <h3 className="mb-3 font-display text-sm font-bold text-white/80">
-              Audio Diagnostics
-            </h3>
-
-            {/* System info */}
-            <div className="mb-3 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/50 space-y-0.5">
-              <div>TTS: {synthesis.isSupported ? 'supported' : 'NOT supported'}</div>
-              <div>STT: {recognition.isSupported ? 'supported' : 'NOT supported'}</div>
-              <div>Voice: {synthesis.voiceName ?? 'loading...'}</div>
-              <div>Voices loaded: {synthesis.voicesLoaded ? 'yes' : 'no'}</div>
-              {recognition.lastError && (
-                <div className="text-red-400">Last STT error: {recognition.lastError}</div>
-              )}
-            </div>
-
-            {/* Test results */}
-            <div className="mb-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-white/70">1. Sound effects</span>
-                {statusIcon(results.audio)}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-white/70">2. Text-to-Speech</span>
-                {statusIcon(results.tts)}
-              </div>
-              {results.ttsError && (
-                <p className="text-red-400/80 pl-4">{results.ttsError}</p>
-              )}
-
-              <div className="flex items-center justify-between">
-                <span className="text-white/70">
-                  3. Microphone
-                  {results.stt === 'testing' && micCountdown > 0 && (
-                    <span className="ml-1 text-accent">— speak now! ({micCountdown}s)</span>
-                  )}
-                </span>
-                {statusIcon(results.stt)}
-              </div>
-              {results.stt === 'testing' && recognition.transcript && (
-                <p className="text-accent/80 pl-4 italic">
-                  Hearing: &ldquo;{recognition.transcript}&rdquo;
-                </p>
-              )}
-              {results.sttError && (
-                <p className="text-red-400/80 pl-4">{results.sttError}</p>
-              )}
-              {results.sttTranscript && (
-                <p className="text-green-400/80 pl-4">
-                  Heard: &ldquo;{results.sttTranscript}&rdquo;
-                </p>
-              )}
-            </div>
-
-            <button
-              onClick={runTests}
-              disabled={running}
-              className="w-full rounded-lg bg-primary px-3 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {running ? 'Running tests...' : 'Run Audio Tests'}
-            </button>
-          </motion.div>
-        )}
+        {open && <AudioTestContent />}
       </AnimatePresence>
     </div>
   );

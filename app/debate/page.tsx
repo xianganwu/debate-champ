@@ -12,7 +12,10 @@ import { Button } from '@/components/ui/Button';
 import { AudioTestPanel } from '@/components/debate/AudioTestPanel';
 
 function getSparkyState(turnState: string, isSpeaking: boolean) {
-  if (turnState === 'sparky' && isSpeaking) return 'speaking' as const;
+  // Show speaking animation whenever TTS is active, regardless of turnState.
+  // With fire-and-forget TTS, turnState may advance to 'student' while
+  // Sparky is still audibly speaking — the avatar should reflect that.
+  if (isSpeaking) return 'speaking' as const;
   if (turnState === 'processing') return 'thinking' as const;
   return 'idle' as const;
 }
@@ -256,6 +259,13 @@ export default function DebatePage() {
                       </motion.button>
                     ) : null}
                   </AnimatePresence>
+                )}
+
+                {/* Note when Sparky's TTS is still audible during student's turn */}
+                {debate.turnState === 'student' && debate.isSpeaking && (
+                  <p className="text-xs text-secondary/60 italic">
+                    Sparky is still talking — tap mic when ready
+                  </p>
                 )}
 
                 <VoiceButton

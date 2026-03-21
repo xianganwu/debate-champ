@@ -7,8 +7,16 @@ const SPARKY_RATE = 1.05;
 
 /** If an utterance doesn't fire onstart within this time, TTS is blocked (mobile). */
 const UTTERANCE_START_TIMEOUT_MS = 2000;
-/** Hard cap per utterance — if onend never fires (Chrome bug), bail out. */
-const UTTERANCE_MAX_DURATION_MS = 15000;
+/**
+ * Hard cap per utterance — if onend never fires (Chrome bug), bail out.
+ * Kept short (8s) because Sparky's responses are 3-4 sentences max.
+ * A stuck utterance at 15s × 4 sentences = 60s freeze; at 8s × 4 = 32s worst case.
+ */
+const UTTERANCE_MAX_DURATION_MS = 8000;
+/** Small delay after cancel() to let the browser clean up internal state. */
+const CANCEL_SETTLE_MS = 50;
+/** Chrome TTS pause bug workaround — resume interval. */
+const RESUME_INTERVAL_MS = 3000;
 
 const PREFERRED_VOICES = [
   'Google UK English Male',
@@ -84,14 +92,14 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     };
   }, [isSupported]);
 
-  // Chrome TTS pause bug workaround
+  // Chrome TTS pause bug workaround — call resume() more frequently (every 3s)
   const startResumeInterval = useCallback(() => {
     if (resumeIntervalRef.current) return;
     resumeIntervalRef.current = setInterval(() => {
       if (typeof window !== 'undefined' && window.speechSynthesis.speaking) {
         window.speechSynthesis.resume();
       }
-    }, 5000);
+    }, RESUME_INTERVAL_MS);
   }, []);
 
   const stopResumeInterval = useCallback(() => {
@@ -113,7 +121,7 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
   /**
    * Speak a single sentence with timeouts:
    * - If onstart doesn't fire within 2s → TTS is blocked, resolve immediately
-   * - If onend doesn't fire within 15s → Chrome bug, force resolve
+   * - If onend doesn't fire within 8s → Chrome bug, force resolve
    */
   const speakSingleUtterance = useCallback(
     (text: string): Promise<void> => {
@@ -165,7 +173,10 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
         utterance.onend = () => finish();
 
         utterance.onerror = (event) => {
-          console.warn('TTS utterance error:', event.error);
+          // 'canceled' is expected when cancel() is called — not a real error
+          if (event.error !== 'canceled') {
+            console.warn('TTS utterance error:', event.error);
+          }
           finish();
         };
 
@@ -183,6 +194,14 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
 
       cancelledRef.current = false;
       window.speechSynthesis.cancel();
+
+      // Wait for cancel() to settle before issuing new speak() calls.
+      // Without this, Chrome can enter a broken state where the new utterance
+      // is immediately cancelled or onend never fires.
+      await new Promise((r) => setTimeout(r, CANCEL_SETTLE_MS));
+
+      if (cancelledRef.current) return; // cancelled during settle delay
+
       startResumeInterval();
 
       try {
@@ -204,6 +223,7 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     await speak(phrase);
   }, [speak]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopResumeInterval();
@@ -212,6 +232,25 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
       }
     };
   }, [stopResumeInterval]);
+
+  // Tab visibility handler — when tab goes to background and comes back,
+  // Chrome TTS can be in a broken paused state. Cancel it to unblock the flow.
+  useEffect(() => {
+    if (!isSupported) return;
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible' && window.speechSynthesis.speaking) {
+        // Tab came back — try resume first. If speech is truly stuck,
+        // the per-utterance timeout will cancel it shortly.
+        window.speechSynthesis.resume();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isSupported]);
 
   return { isSupported, isSpeaking, voicesLoaded, speak, cancel, testSpeak, voiceName };
 }
