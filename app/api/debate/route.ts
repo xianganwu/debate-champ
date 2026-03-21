@@ -28,6 +28,17 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Server-side guardrails — prevent abuse via direct API calls
+  if (topic.length > 200) {
+    return Response.json({ error: 'Topic text too long' }, { status: 400 });
+  }
+  if (!Array.isArray(messages) || messages.length > 10) {
+    return Response.json({ error: 'Too many messages' }, { status: 400 });
+  }
+  if (messages.some((m) => typeof m.text !== 'string' || m.text.length > 2000)) {
+    return Response.json({ error: 'Message text too long' }, { status: 400 });
+  }
+
   try {
     const conversationHistory = buildConversationHistory(messages);
 

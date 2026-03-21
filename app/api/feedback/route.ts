@@ -54,6 +54,14 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Server-side guardrails — prevent abuse via direct API calls
+  if (!Array.isArray(transcript) || transcript.length > 10) {
+    return Response.json({ error: 'Too many transcript entries' }, { status: 400 });
+  }
+  if (transcript.some((e) => typeof e.text !== 'string' || e.text.length > 2000)) {
+    return Response.json({ error: 'Transcript entry too long' }, { status: 400 });
+  }
+
   try {
     const result = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',

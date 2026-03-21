@@ -26,9 +26,22 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Server-side guardrails — prevent abuse via direct API calls
+  if (topic.length > 200) {
+    return Response.json({ error: 'Topic text too long' }, { status: 400 });
+  }
+  if (Array.isArray(transcript) && transcript.length > 10) {
+    return Response.json({ error: 'Too many transcript entries' }, { status: 400 });
+  }
+  if (Array.isArray(transcript) && transcript.some((e) => typeof e.text !== 'string' || e.text.length > 2000)) {
+    return Response.json({ error: 'Transcript entry too long' }, { status: 400 });
+  }
+
   try {
+    // Haiku is optimal for hints — generates a single 15-word sentence.
+    // Lower cost (~10×) and lower latency than Sonnet, identical quality for this task.
     const result = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-3-5-20241022',
       max_tokens: 60,
       messages: [
         {

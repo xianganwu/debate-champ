@@ -4,7 +4,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SparkyIntro, isFirstVisit, markVisited } from '@/components/home/SparkyIntro';
+import { SparkyQuip } from '@/components/home/SparkyQuip';
 import { TopicGrid } from '@/components/home/TopicGrid';
+import { CustomTopicInput } from '@/components/home/CustomTopicInput';
 import { SideSelector } from '@/components/home/SideSelector';
 import { Button } from '@/components/ui/Button';
 import { DifficultySelector } from '@/components/home/DifficultySelector';
@@ -51,6 +53,7 @@ export default function HomePage() {
   const { setTopic, setSides, setDifficulty } = useDebateStore();
 
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [isPresetTopic, setIsPresetTopic] = useState(false);
   const [selectedSide, setSelectedSide] = useState<DebateSide | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
   const [voiceSupported] = useState(
@@ -113,6 +116,9 @@ export default function HomePage() {
           </div>
         </motion.div>
 
+        {/* Sparky quip — random personality line */}
+        <SparkyQuip />
+
         {/* Browser compat banner */}
         {!voiceSupported && !compatDismissed && (
           <motion.div
@@ -138,9 +144,22 @@ export default function HomePage() {
         {/* Topic Grid */}
         <section className="w-full" aria-label="Choose a debate topic">
           <TopicGrid
-            selectedTopic={selectedTopic}
+            selectedTopic={isPresetTopic ? selectedTopic : null}
             onSelectTopic={(topic) => {
               setSelectedTopic(topic);
+              setIsPresetTopic(true);
+              setSelectedSide(null);
+            }}
+          />
+        </section>
+
+        {/* Custom topic input */}
+        <section className="w-full" aria-label="Create your own topic">
+          <CustomTopicInput
+            hasPresetSelected={isPresetTopic && selectedTopic !== null}
+            onSelectTopic={(topic) => {
+              setSelectedTopic(topic);
+              setIsPresetTopic(false);
               setSelectedSide(null);
             }}
           />
